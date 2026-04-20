@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row animate-fade-in">
+    <div class="col-lg-8 mx-auto">
+        <!-- Welcoming Header -->
+        <div class="mb-5 text-center">
+            <h1 class="display-5 fw-bold mb-2">Evaluate Your Document</h1>
+            <p class="text-muted lead">Upload your academic work for automated structure and grammar analysis.</p>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger border-0 shadow-sm rounded-4 p-3 mb-4">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        {% if submission_success %}
+        <div class="card card-custom border-0 bg-success bg-opacity-10 text-success mb-4">
+            <div class="card-body text-center py-4">
+                <h4 class="fw-bold mb-2">✅ Submission Successful</h4>
+                <p class="mb-0">Your document has been sent to the supervisor for manual review.</p>
+                {% if submission_time %}
+                    <small class="opacity-75">Submitted at: {{ submission_time }}</small>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Upload Card -->
+        <div class="card card-custom mb-5">
+            <div class="card-body p-4 p-md-5">
+                <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+                    <div class="row g-4">
+                        <div class="col-md-{{ '4' if user.role == 'student' else '6' }}">
+                            <label class="form-label fw-bold small text-uppercase tracking-wider">Document Type</label>
+                            <select name="doc_type" class="form-select border-2 rounded-3 py-2 px-3" required>
+                                {% for type in document_types %}
+                                    <option value="{{ type }}" {{ 'selected' if selected_doc_type == type else '' }}>{{ type|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        {% if user.role == 'student' %}
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase tracking-wider">Supervisor (Your Dept)</label>
+                            <select name="supervisor_id" id="supervisorSelect" class="form-select border-2 rounded-3 py-2 px-3">
+                                <option value="" disabled selected>Select a supervisor...</option>
+                                {% for sup in department_supervisors %}
+                                    <option value="{{ sup.user_id }}" {{ 'selected' if selected_supervisor_id == sup.user_id|string else '' }}>{{ sup.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-danger d-none" id="supervisorError" style="font-size: 0.75rem;">Required for final submission.</small>
+                        </div>
+                        {% endif %}
+
+                        <div class="col-md-{{ '4' if user.role == 'student' else '6' }}">
+                            <label class="form-label fw-bold small text-uppercase tracking-wider">Document (PDF, DOCX)</label>
+                            
+                            {% if selected_file_name or (result and result.filename) %}
+                                <!-- File already held in memory -->
+                                <div id="existingFileUI">
+                                    <div class="d-flex align-items-center justify-content-between border-2 rounded-3 py-2 px-3 bg-success bg-opacity-10 border border-success-subtle shadow-sm pb-1 pt-1 mt-1">
+                                        <div class="text-truncate fw-bold text-success" style="max-width: 150px;" title="{{ selected_file_name or result.filename }}">
+                                            <i class="bi bi-file-earmark-check-fill me-2"></i>{{ selected_file_name or result.filename }}
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2 rounded-pill fw-medium" onclick="document.getElementById('existingFileUI').style.display='none'; document.getElementById('newFileInput').style.display='block'; document.getElementById('newFileInputField').setAttribute('required', 'true');">
+                                            Clear
+                                        </button>
+                                    </div>
+                                    <div class="mt-1 small text-muted" style="line-height: normal;"><i class="bi bi-info-circle me-1"></i> Doc in memory.</div>
+                                </div>
+                                <div id="newFileInput" style="display: none;">
+                                    <input type="file" id="newFileInputField" name="file" accept=".pdf,.doc,.docx" class="form-control border-2 rounded-3 py-2">
+                                </div>
+                            {% else %}
+                                <!-- No file in memory, force upload -->
+                                <input type="file" name="file" accept=".pdf,.doc,.docx" class="form-control border-2 rounded-3 py-2" required>
+                            {% endif %}
+                        </div>
+                        <div class="col-12 mt-4 text-center">
+                            <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                                <button type="submit" name="action" value="evaluate" class="btn btn-primary-custom px-5 py-3 shadow-lg">
+                                    <i class="bi bi-search me-2"></i> Evaluate Document
+                                </button>
+
+                                {% if user.role == 'student' %}
+                                <button type="submit" name="action" value="submit" class="btn btn-outline-custom px-5 py-3">
+                                    <i class="bi bi-cloud-upload me-2"></i> Final Submission
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if result and not submission_success %}
+        <!-- AI Analytics Dashboard -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                    <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Evaluation</div>
+                    <div class="display-6 fw-bold" style="color: var(--primary-blue);">{{ result.ai_eval_score }}<span class="fs-4 text-muted">%</span></div>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-primary-custom" style="width: {{ result.ai_eval_score }}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                    <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Grammar Accuracy</div>
+                    <div class="display-6 fw-bold text-success">{{ result.grammar_score }}<span class="fs-4 text-muted">%</span></div>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" style="width: {{ result.grammar_score }}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                    <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Structure Compliance</div>
+                    <div class="display-6 fw-bold" style="color: var(--primary-gold);">{{ result.structure['structure_score']|default('0') }}<span class="fs-4 text-muted">%</span></div>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-warning" style="width: {{ result.structure['structure_score']|default('0') }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Structure Evaluation -->
+            <div class="col-12">
+                <div class="card card-custom h-100 mb-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="mb-0 fw-bold">Structure Analysis</h4>
+                            <div class="badge bg-gold-custom fs-5 px-3 py-2 rounded-pill shadow-sm">
+                                {{ result.structure['structure_score']|default('0') }}%
+                            </div>
+                        </div>
+
+                        <!-- Section Detection Grid -->
+                        <div class="row g-3">
+                            {% if result.structure and result.structure.detected_sections %}
+                                {% for section, detected in result.structure.detected_sections.items() %}
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="p-3 rounded-4 border d-flex align-items-center justify-content-between {{ 'bg-success bg-opacity-10 border-success-subtle' if detected else 'bg-danger bg-opacity-10 border-danger-subtle' }}">
+                                        <span class="fw-semibold text-truncate me-2">{{ section|title }}</span>
+                                        {% if detected %}
+                                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                        {% else %}
+                                            <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="col-12 text-center text-muted py-4">No structure data available for this document type.</div>
+                            {% endif %}
+                        </div>
+
+                        {% if result.structure and result.structure.missing_sections %}
+                            {% if result.structure.missing_sections|length > 0 %}
+                                <div class="mt-4 p-3 bg-danger bg-opacity-10 border border-danger-subtle rounded-4">
+                                    <span class="fw-bold text-danger">⚠️ Action Required:</span> 
+                                    Missing sections detected: {{ result.structure.missing_sections | join(', ') }}
+                                </div>
+                            {% else %}
+                                <div class="mt-4 p-3 bg-success bg-opacity-10 border border-success-subtle rounded-4 text-center">
+                                    <span class="fw-bold text-success">✨ Perfect Structure:</span> All required sections are accounted for.
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Rule Checks -->
+            {% if result.structure and (result.structure.violations or result.structure.checks_passed) %}
+            <div class="col-12">
+                <div class="card card-custom mb-4">
+                    <div class="card-body p-4">
+                        <h4 class="fw-bold mb-4"><i class="bi bi-clipboard-check me-2"></i>Detailed Rule Checks</h4>
+                        
+                        <!-- Document Stats -->
+                        {% if result.structure.total_words or result.structure.page_count %}
+                        <div class="d-flex flex-wrap gap-3 mb-4">
+                            {% if result.structure.total_words %}
+                            <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+                                <i class="bi bi-text-paragraph me-1"></i>{{ result.structure.total_words }} words
+                            </span>
+                            {% endif %}
+                            {% if result.structure.page_count %}
+                            <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">
+                                <i class="bi bi-file-earmark me-1"></i>~{{ result.structure.page_count }} pages
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Violations -->
+                        {% if result.structure.violations %}
+                        <h6 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-triangle-fill me-1"></i> Issues Found ({{ result.structure.violations|length }})</h6>
+                        <div class="list-group mb-4">
+                            {% for v in result.structure.violations %}
+                            <div class="list-group-item border-0 rounded-3 mb-2 {{ 'bg-danger bg-opacity-10' if v.severity == 'error' else 'bg-warning bg-opacity-10' }}">
+                                <div class="d-flex align-items-start gap-2">
+                                    {% if v.severity == 'error' %}
+                                        <i class="bi bi-x-circle-fill text-danger mt-1"></i>
+                                    {% else %}
+                                        <i class="bi bi-exclamation-circle-fill text-warning mt-1"></i>
+                                    {% endif %}
+                                    <div>
+                                        <span class="badge {{ 'bg-danger' if v.severity == 'error' else 'bg-warning text-dark' }} me-2">{{ v.category }}</span>
+                                        <span class="fw-medium">{{ v.message }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Passed Checks -->
+                        {% if result.structure.checks_passed %}
+                        <h6 class="fw-bold text-success mb-3"><i class="bi bi-check-circle-fill me-1"></i> Passed Checks ({{ result.structure.checks_passed|length }})</h6>
+                        <div class="list-group">
+                            {% for c in result.structure.checks_passed %}
+                            <div class="list-group-item border-0 rounded-3 mb-2 bg-success bg-opacity-10">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi bi-check-circle-fill text-success mt-1"></i>
+                                    <div>
+                                        <span class="badge bg-success me-2">{{ c.category }}</span>
+                                        <span class="fw-medium">{{ c.message }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Grammar Evaluation -->
+            <div class="col-12">
+                <div class="card card-custom">
+                    <div class="card-body p-4">
+                        <h4 class="mb-4 fw-bold">Grammar & Syntax Check</h4>
+                        
+                        {% for section, data in result.grammar.items() %}
+                        <div class="mb-4 last-child-mb-0">
+                            <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-widest">{{ section|title }}</h6>
+                            {% if data.issues and data.issues|length > 0 %}
+                                <div class="list-group list-group-flush border rounded-4 overflow-hidden">
+                                    {% for issue in data.issues %}
+                                    <div class="list-group-item p-4 border-bottom last-child-border-0">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3 mb-md-0">
+                                                <div class="small fw-bold text-muted mb-2">Detected Issue:</div>
+                                                <div class="p-3 bg-danger bg-opacity-10 rounded-3 border border-danger-subtle">
+                                                    <span class="text-danger fw-bold fs-5">{{ issue.word }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="small fw-bold text-muted mb-2">Suggestion:</div>
+                                                <div class="p-3 bg-success bg-opacity-10 rounded-3 border border-success-subtle">
+                                                    <span class="text-success fw-bold fs-5">{{ issue.suggestion }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="p-4 bg-light rounded-4 text-center border dashed">
+                                    <i class="bi bi-star-fill text-warning me-2"></i> No linguistic issues identified in this section.
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .tracking-wider { letter-spacing: 0.05em; }
+    .tracking-widest { letter-spacing: 0.1em; }
+    .dashed { border-style: dashed !important; }
+    .last-child-mb-0:last-child { margin-bottom: 0 !important; }
+    .last-child-border-0:last-child { border-bottom: 0 !important; }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<!-- Add Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<!-- AI Evaluation Scanning Modal -->
+<div class="modal fade" id="evaluationModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem; overflow: hidden;">
+            <div class="px-4 py-4" style="background: linear-gradient(135deg, var(--primary-blue), #001540);">
+                <div class="d-flex align-items-center justify-content-center">
+                    <h4 class="modal-title fw-bold text-white mb-0"><i class="bi bi-cpu-fill me-2 text-primary-gold"></i> Processing Document</h4>
+                </div>
+            </div>
+            <div class="modal-body p-5 bg-light text-center">
+                <!-- Loading State -->
+                <div class="spinner-border text-primary-custom mb-4" role="status" style="width: 4rem; height: 4rem; border-width: 0.35em;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 class="fw-bold text-dark mb-2" id="scanText">Evaluating core document structure...</h5>
+                <p class="text-muted small">Please do not refresh the page or navigate away.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[action="{{ url_for('upload') }}"]');
+    const evaluateBtn = document.querySelector('button[value="evaluate"]');
+    const submitBtn = document.querySelector('button[value="submit"]');
+    const scanText = document.getElementById('scanText');
+
+    if(form && submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            const supervisorSelect = document.getElementById('supervisorSelect');
+            if (supervisorSelect && !supervisorSelect.value) {
+                e.preventDefault(); // Prevent submission
+                document.getElementById('supervisorError').classList.remove('d-none');
+                supervisorSelect.classList.add('border-danger');
+                supervisorSelect.focus();
+            } else if (supervisorSelect) {
+                document.getElementById('supervisorError').classList.add('d-none');
+                supervisorSelect.classList.remove('border-danger');
+            }
+        });
+    }
+
+    if(form && evaluateBtn) {
+        evaluateBtn.addEventListener('click', function(e) {
+            // Unset required from supervisor for evaluation
+            const supervisorSelect = document.getElementById('supervisorSelect');
+            if(supervisorSelect) {
+                document.getElementById('supervisorError').classList.add('d-none');
+                supervisorSelect.classList.remove('border-danger');
+            }
+
+            // Need to verify standard form constraints before showing overlay
+            if(!form.checkValidity()) {
+                // If invalid, let standard browser behavior happen
+                return;
+            }
+
+            // Create a hidden input to simulate clicking the 'evaluate' button
+            const hiddenBtn = document.createElement('input');
+            hiddenBtn.type = 'hidden';
+            hiddenBtn.name = 'action';
+            hiddenBtn.value = 'evaluate';
+            form.appendChild(hiddenBtn);
+
+            e.preventDefault();
+            
+            // Show Bootstrap Modal
+            const evalModal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+            evalModal.show();
+
+            // Simulate scanning steps aesthetically but quickly
+            setTimeout(() => { scanText.textContent = "Analyzing grammar syntax..."; }, 700);
+            setTimeout(() => { scanText.textContent = "Executing similarity checks..."; }, 1500);
+
+            // Finally submit after a short wait
+            setTimeout(() => {
+                form.submit();
+            }, 2000);
+        });
+    }
+});
+</script>
+
+{% endblock %}

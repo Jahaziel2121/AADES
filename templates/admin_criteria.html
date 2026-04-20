@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-end mb-5">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}" class="text-decoration-none text-muted">Admin</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Evaluation Rules</li>
+                </ol>
+            </nav>
+            <h1 class="display-6 fw-bold mb-1">Manage Evaluation Rules</h1>
+            <p class="text-muted mb-0">Configure comprehensive evaluation criteria for each document type — sections, formatting, citations, and more.</p>
+        </div>
+    </div>
+
+    <!-- Document Type Tabs -->
+    <ul class="nav nav-pills mb-4 flex-wrap gap-2" id="docTypeTabs" role="tablist">
+        {% for item in rules_list %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if loop.first %}active{% endif %} text-capitalize fw-bold px-4 py-2 rounded-pill" 
+                    id="tab-{{ item.doc_type }}" 
+                    data-bs-toggle="pill" 
+                    data-bs-target="#pane-{{ item.doc_type }}" 
+                    type="button" role="tab">
+                <i class="bi bi-file-earmark-text me-1"></i>{{ item.doc_type }}
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="docTypeContent">
+        {% for item in rules_list %}
+        {% set r = item.rules %}
+        <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+             id="pane-{{ item.doc_type }}" role="tabpanel">
+            
+            <form method="POST" action="{{ url_for('admin_criteria') }}">
+                <input type="hidden" name="doc_type" value="{{ item.doc_type }}">
+
+                <div class="row g-4">
+                    <!-- ====== COLUMN 1: Sections & Sub-Headings ====== -->
+                    <div class="col-lg-6">
+                        <div class="card card-custom border-0 shadow-sm h-100">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary-custom mb-3">
+                                    <i class="bi bi-list-check me-2"></i>Required Sections & Headings
+                                </h5>
+                                <p class="text-muted small mb-3">Comma-separated list of headings the document must contain.</p>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase tracking-widest">Required Sections</label>
+                                    <textarea name="required_sections" 
+                                              class="form-control border-2 rounded-3 font-monospace" 
+                                              rows="4" placeholder="introduction, methodology, conclusion, references">{{ r.required_sections | join(', ') }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase tracking-widest">Sub-Headings</label>
+                                    <p class="text-muted small mb-2">Format: <code>parent section: sub1, sub2, sub3</code> (one per line)</p>
+                                    <textarea name="sub_headings" 
+                                              class="form-control border-2 rounded-3 font-monospace" 
+                                              rows="4" placeholder="methodology: research design, data collection">{% for parent, subs in r.get('sub_headings', {}).items() %}{{ parent }}: {{ subs | join(', ') }}
+{% endfor %}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ====== COLUMN 2: References & Citations ====== -->
+                    <div class="col-lg-6">
+                        <div class="card card-custom border-0 shadow-sm h-100">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary-custom mb-3">
+                                    <i class="bi bi-book me-2"></i>References & Citations
+                                </h5>
+
+                                <div class="d-flex gap-4 mb-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="apa-{{ item.doc_type }}" 
+                                               name="apa_references" {% if r.get('apa_references') %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="apa-{{ item.doc_type }}">
+                                            Enforce APA References
+                                        </label>
+                                        <div class="text-muted small">Check if references follow APA format</div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-4 mb-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="cite-{{ item.doc_type }}" 
+                                               name="check_citations" {% if r.get('check_citations') %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="cite-{{ item.doc_type }}">
+                                            Verify In-Text Citations
+                                        </label>
+                                        <div class="text-muted small">Check for (Author, Year) citations in body</div>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <h5 class="fw-bold text-primary-custom mb-3">
+                                    <i class="bi bi-table me-2"></i>Tables & Figures
+                                </h5>
+
+                                <div class="d-flex gap-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="tables-{{ item.doc_type }}" 
+                                               name="require_tables" {% if r.get('require_tables') %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="tables-{{ item.doc_type }}">Require Tables</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="figures-{{ item.doc_type }}" 
+                                               name="require_figures" {% if r.get('require_figures') %}checked{% endif %}>
+                                        <label class="form-check-label fw-bold" for="figures-{{ item.doc_type }}">Require Figures</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ====== COLUMN 3: Word Count & Page Limits ====== -->
+                    <div class="col-lg-6">
+                        <div class="card card-custom border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary-custom mb-3">
+                                    <i class="bi bi-text-paragraph me-2"></i>Word Count & Page Limits
+                                </h5>
+
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-bold text-muted">Min Words / Section</label>
+                                        <input type="number" name="min_words_per_section" class="form-control border-2 rounded-3" 
+                                               value="{{ r.get('min_words_per_section', 0) }}" min="0">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-bold text-muted">Max Words / Section</label>
+                                        <input type="number" name="max_words_per_section" class="form-control border-2 rounded-3" 
+                                               value="{{ r.get('max_words_per_section', 0) }}" min="0">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small fw-bold text-muted">Min Pages</label>
+                                        <input type="number" name="min_pages" class="form-control border-2 rounded-3" 
+                                               value="{{ r.get('min_pages', 0) }}" min="0">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small fw-bold text-muted">Max Pages</label>
+                                        <input type="number" name="max_pages" class="form-control border-2 rounded-3" 
+                                               value="{{ r.get('max_pages', 0) }}" min="0">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small fw-bold text-muted">Max Lines</label>
+                                        <input type="number" name="max_lines" class="form-control border-2 rounded-3" 
+                                               value="{{ r.get('max_lines', 0) }}" min="0">
+                                        <div class="form-text">0 = no limit</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ====== COLUMN 4: Font & Formatting ====== -->
+                    <div class="col-lg-6">
+                        <div class="card card-custom border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold text-primary-custom mb-3">
+                                    <i class="bi bi-fonts me-2"></i>Font & Formatting
+                                </h5>
+                                <p class="text-muted small mb-3">Applicable to DOCX uploads only. Set to 0 or blank to skip check.</p>
+
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-bold text-muted">Required Font Size (pt)</label>
+                                        <select name="font_size" class="form-select border-2 rounded-3">
+                                            <option value="0" {% if r.get('font_size', 0) == 0 %}selected{% endif %}>Any</option>
+                                            {% for size in [10, 11, 12, 13, 14, 16, 18] %}
+                                            <option value="{{ size }}" {% if r.get('font_size', 0) == size %}selected{% endif %}>{{ size }}pt</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-bold text-muted">Required Font Family</label>
+                                        <select name="font_family" class="form-select border-2 rounded-3">
+                                            <option value="" {% if not r.get('font_family') %}selected{% endif %}>Any</option>
+                                            {% for font in ['Times New Roman', 'Arial', 'Calibri', 'Georgia', 'Cambria', 'Verdana', 'Helvetica', 'Garamond', 'Century Schoolbook'] %}
+                                            <option value="{{ font }}" {% if r.get('font_family') == font %}selected{% endif %}>{{ font }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-primary-custom px-5 py-2 rounded-pill shadow-sm">
+                        <i class="bi bi-save2 me-2"></i>Save Rules for "{{ item.doc_type | capitalize }}"
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Add New Document Type -->
+    <div class="card card-custom border-0 shadow-sm mt-5">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-primary-custom mb-3">
+                <i class="bi bi-plus-circle me-2"></i>Add New Document Type
+            </h5>
+            <form method="POST" action="{{ url_for('admin_criteria') }}" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">Document Type Name</label>
+                    <input type="text" name="doc_type" class="form-control border-2 rounded-3" 
+                           placeholder="e.g. dissertation" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold text-muted">Required Sections (comma-separated)</label>
+                    <input type="text" name="required_sections" class="form-control border-2 rounded-3" 
+                           placeholder="abstract, introduction, conclusion, references" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-custom w-100 rounded-pill">
+                        <i class="bi bi-plus-lg"></i> Add
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tracking-widest { letter-spacing: 0.1em; }
+    .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .nav-pills .nav-link {
+        color: var(--text-label);
+        border: 2px solid var(--input-border);
+        transition: all 0.2s;
+    }
+    .nav-pills .nav-link.active {
+        background-color: var(--primary-blue, #00205b);
+        border-color: var(--primary-blue, #00205b);
+        color: white;
+    }
+    .nav-pills .nav-link:hover:not(.active) {
+        border-color: var(--primary-gold, #c69214);
+        color: var(--primary-gold, #c69214);
+    }
+    .form-check-input:checked {
+        background-color: var(--primary-blue, #00205b);
+        border-color: var(--primary-blue, #00205b);
+    }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+{% endblock %}

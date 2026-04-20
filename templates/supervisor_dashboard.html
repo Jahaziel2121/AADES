@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-end mb-5">
+        <div>
+            <h1 class="display-6 fw-bold mb-1">Welcome, {{ user.full_name|title if user.full_name else 'Supervisor' }}</h1>
+            {% if user.department or user.faculty %}
+                <p class="text-muted mb-0"><i class="bi bi-building text-primary-custom me-2" style="color: var(--primary-gold);"></i> 
+                    Department of {{ user.department }}{% if user.department and user.faculty %} | {% endif %}{{ user.faculty }}
+                </p>
+            {% else %}
+                <p class="text-muted mb-0">Manage student submissions and academic documentation quality.</p>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            {% if is_archive_view %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+                </a>
+            {% else %}
+                <a href="{{ url_for('supervisor_archives') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-archive me-2"></i> View Archives
+                </a>
+                <a href="{{ url_for('manage_events') }}" class="btn btn-outline-custom">
+                    <i class="bi bi-calendar-event me-2"></i> Manage Events
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    {% if not is_archive_view %}
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary-blue), #1a3a8a);">
+                        <i class="bi bi-folder2-open text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Total Submissions</div>
+                        <div class="fs-3 fw-bold">{{ total_submissions }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; background: linear-gradient(135deg, #e67e22, #d35400);">
+                        <i class="bi bi-hourglass-split text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Pending Review</div>
+                        <div class="fs-3 fw-bold text-warning">{{ pending_count }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; background: linear-gradient(135deg, #27ae60, #1e8449);">
+                        <i class="bi bi-check2-all text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small text-uppercase fw-bold" style="letter-spacing: 0.05em;">Reviewed</div>
+                        <div class="fs-3 fw-bold text-success">{{ reviewed_count }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Submissions Table -->
+    <div class="card card-custom border-0 shadow-sm">
+        <div class="card-body p-4">
+            <h4 class="fw-bold mb-4">
+                {% if is_archive_view %}Archived Submissions{% else %}Student Submissions{% endif %}
+            </h4>
+            
+            {% if submissions %}
+            <!-- Search Bar -->
+            <div class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-2 border-end-0 rounded-start-3">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" id="submissionSearch" class="form-control border-2 border-start-0 rounded-end-3 py-2" 
+                           placeholder="Search by student name or email..." 
+                           oninput="filterSubmissions()">
+                </div>
+                <div id="searchFeedback" class="text-muted small mt-2" style="display:none;"></div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-custom align-middle" id="submissionTable">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Document Info</th>
+                            <th>Comment / Feedback</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in submissions %}
+                        <tr>
+                            <td>
+                                <button class="btn btn-link text-start p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#studentProfileModal{{ loop.index }}">
+                                    <div class="fw-bold text-primary-custom" style="transition: color 0.2s;" onmouseover="this.style.color='var(--primary-gold)'" onmouseout="this.style.color='var(--primary-blue)'">
+                                        {{ s.student_name if s.student_name else 'N/A' }}
+                                    </div>
+                                    <div class="text-muted small"><i class="bi bi-info-circle me-1"></i>{{ s.student_email }}</div>
+                                </button>
+                                
+                                <!-- Student Details Modal -->
+                                <div class="modal fade" id="studentProfileModal{{ loop.index }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem; overflow: hidden;">
+                                            <div class="px-4 py-4 position-relative" style="background: linear-gradient(135deg, var(--primary-blue), #001540);">
+                                                <div class="position-absolute end-0 top-0 opacity-25 p-3 overflow-hidden" style="width: 150px; height: 100%;">
+                                                    <i class="bi bi-person-badge-fill" style="font-size: 8rem; position: absolute; right: -20px; top: -20px; color: var(--primary-gold);"></i>
+                                                </div>
+                                                <div class="position-relative text-start" style="z-index: 2;">
+                                                    <h4 class="modal-title fw-bold text-white mb-1">Student Profile</h4>
+                                                    <p class="text-white-50 mb-0 small">Academic Identity Details</p>
+                                                </div>
+                                                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Close" style="z-index: 3;"></button>
+                                            </div>
+                                            <div class="modal-body p-4 bg-light text-start">
+                                                <div class="bg-white p-3 rounded-4 border shadow-sm mb-3 text-center">
+                                                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                                                        <i class="bi bi-person-fill fs-2" style="color: var(--primary-gold);"></i>
+                                                    </div>
+                                                    <h5 class="fw-bold text-dark mb-1">{{ s.student_name if s.student_name else 'Unknown' }}</h5>
+                                                    <div class="text-muted small fw-medium mb-3">ID: #{{ s.upsa_student_id or 'Unknown' }}</div>
+                                                    <a href="mailto:{{ s.student_email }}" class="btn btn-sm btn-outline-primary rounded-pill px-4 fw-medium"><i class="bi bi-envelope me-1"></i> Email Student</a>
+                                                </div>
+                                                <div class="bg-white p-3 rounded-4 border shadow-sm">
+                                                    <h6 class="fw-bold small text-uppercase mb-4 mt-1" style="letter-spacing: 0.05em; color: var(--primary-blue);">Academic Assignment</h6>
+                                                    <div class="d-flex align-items-start mb-3">
+                                                        <i class="bi bi-building fs-5 me-3 text-muted"></i>
+                                                        <div>
+                                                            <div class="small fw-bold text-muted">Faculty / School</div>
+                                                            <div class="fw-medium">{{ s.faculty or 'Not Specified' }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex align-items-start mb-3">
+                                                        <i class="bi bi-diagram-2 fs-5 me-3 text-muted"></i>
+                                                        <div>
+                                                            <div class="small fw-bold text-muted">Department</div>
+                                                            <div class="fw-medium">{{ s.department or 'Not Specified' }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex align-items-start mb-3">
+                                                        <i class="bi bi-book fs-5 me-3 text-muted"></i>
+                                                        <div>
+                                                            <div class="small fw-bold text-muted">Program of Study</div>
+                                                            <div class="fw-medium">{{ s.program or 'Not Specified' }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex align-items-start mb-1">
+                                                        <i class="bi bi-clock-history fs-5 me-3 text-muted"></i>
+                                                        <div>
+                                                            <div class="small fw-bold text-muted">Academic Section</div>
+                                                            <div class="fw-medium">{{ s.section or 'Not Specified' }}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-medium text-truncate" style="max-width: 200px;" title="{{ s.file_name }}">{{ s.file_name }}</div>
+                                <div>
+                                    <span class="badge bg-light text-primary-custom small me-1">{{ s.doc_type|upper }}</span>
+                                    {% if s.similarity_score > 15 %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger small" title="Plagiarism Alert">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> {{ s.similarity_score }}% Similarity
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success bg-opacity-10 text-success small" title="Safe">
+                                            <i class="bi bi-shield-check"></i> {{ s.similarity_score }}% Similarity
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('add_comment', submission_id=s.submission_id) }}" class="d-flex gap-2">
+                                    <input type="text" name="comment" class="form-control form-control-sm rounded-3 border-2" 
+                                           placeholder="Add feedback..." value="{{ s.comment_text or '' }}">
+                                    <button type="submit" class="btn btn-primary-custom btn-sm px-3">Save</button>
+                                </form>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <button class="btn btn-outline-custom btn-sm px-3" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#viewModal{{ loop.index }}">
+                                        <i class="bi bi-eye-fill"></i> Review
+                                    </button>
+                                    
+                                    {% if is_archive_view %}
+                                        <form method="POST" action="{{ url_for('unarchive_submission', submission_id=s.submission_id) }}">
+                                            <button type="submit" class="btn btn-warning btn-sm px-3 border-2" title="Restore to main dashboard">
+                                                <i class="bi bi-arrow-counterclockwise"></i> Unarchive
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <form method="POST" 
+                                              action="{{ url_for('add_to_library', student_email=s.student_email, filename=s.file_name, doc_type=s.doc_type) }}">
+                                            <button type="submit" class="btn btn-outline-success btn-sm px-3 border-2" 
+                                                    onclick="return confirm('Promote this document to the Library?')">
+                                                <i class="bi bi-bookmark-star-fill"></i> Library
+                                            </button>
+                                        </form>
+
+                                        {% if s.status == 'reviewed' %}
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 rounded-pill d-flex align-items-center">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Reviewed
+                                            </span>
+                                            <form method="POST" action="{{ url_for('archive_submission', submission_id=s.submission_id) }}">
+                                                <button type="submit" class="btn btn-outline-secondary btn-sm px-3 border-2" title="Archive submission">
+                                                    <i class="bi bi-archive-fill"></i> Archive
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" action="{{ url_for('mark_reviewed', submission_id=s.submission_id) }}">
+                                                <button type="submit" class="btn btn-success btn-sm px-3 border-2"
+                                                        onclick="return confirm('Mark this submission as fully reviewed?')">
+                                                    <i class="bi bi-check2-circle me-1"></i> Mark Reviewed
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+
+                                <!-- Premium View Modal -->
+                                <div class="modal fade" id="viewModal{{ loop.index }}" tabindex="-1">
+                                    <div class="modal-dialog modal-xl modal-dialog-centered">
+                                        <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
+                                            <div class="modal-header bg-dark text-white border-0 py-3">
+                                                <div>
+                                                    <h5 class="modal-title fw-bold mb-0">Document Review: {{ s.file_name }}</h5>
+                                                    {% if s.status == 'reviewed' %}
+                                                        <span class="badge bg-success bg-opacity-25 text-success small mt-1"><i class="bi bi-check-circle-fill me-1"></i> Reviewed</span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning bg-opacity-25 text-warning small mt-1"><i class="bi bi-hourglass-split me-1"></i> Pending Review</span>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    {% if s.status != 'reviewed' %}
+                                                        <form method="POST" action="{{ url_for('mark_reviewed', submission_id=s.submission_id) }}">
+                                                            <button type="submit" class="btn btn-success btn-sm px-4 fw-bold">
+                                                                <i class="bi bi-check2-circle me-1"></i> Mark as Reviewed
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                </div>
+                                            </div>
+                                            <div class="modal-body p-0 bg-light">
+                                                <!-- Internal Tabs -->
+                                                <div class="p-3 bg-white border-bottom d-flex justify-content-center gap-3">
+                                                    <button id="btnDoc{{ loop.index }}" class="btn btn-primary-custom px-4 active" 
+                                                            onclick="showMode({{ loop.index }}, 'document')">
+                                                        <i class="bi bi-file-earmark-text me-2"></i> View Document
+                                                    </button>
+                                                    <button id="btnErr{{ loop.index }}" class="btn btn-outline-custom px-4" 
+                                                            onclick="showMode({{ loop.index }}, 'errors')">
+                                                        <i class="bi bi-vector-pen me-2"></i> Syntax Errors
+                                                    </button>
+                                                    
+                                                    <!-- Web Plagiarism Trigger -->
+                                                    <button class="btn btn-dark px-4 ms-2 d-flex align-items-center gap-2" 
+                                                            onclick="runPlagiarismScan('{{ s.file_name }}')" id="plagScanBtn-{{ loop.index }}">
+                                                        <i class="bi bi-globe2 text-primary-gold"></i> Web Plagiarism Scan
+                                                    </button>
+                                                    
+                                                    <a href="{{ url_for('uploaded_file', filename=s.file_name) }}" download class="btn btn-outline-secondary px-4 ms-2">
+                                                        <i class="bi bi-download me-2"></i> Download
+                                                    </a>
+                                                </div>
+
+                                                <div id="modalContent{{ loop.index }}" class="bg-light" style="height: 70vh; overflow-y: auto;">
+                                                    <!-- Sticky Analytics Dashboard (Always Visible) -->
+                                                    <div class="row g-3 p-4 pb-2">
+                                                        <div class="col-md-4">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Evaluation</div>
+                                                                <div class="display-6 fw-bold" style="color: var(--primary-blue);">{{ s.ai_eval_score }}<span class="fs-4 text-muted">%</span></div>
+                                                                <div class="progress mt-2" style="height: 6px;">
+                                                                    <div class="progress-bar bg-primary-custom" style="width: {{ s.ai_eval_score }}%"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Grammar Accuracy</div>
+                                                                <div class="display-6 fw-bold text-success">{{ s.grammar_score }}<span class="fs-4 text-muted">%</span></div>
+                                                                <div class="progress mt-2" style="height: 6px;">
+                                                                    <div class="progress-bar bg-success" style="width: {{ s.grammar_score }}%"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Structure Compliance</div>
+                                                                <div class="display-6 fw-bold" style="color: var(--primary-gold);">{{ s.structure_score }}<span class="fs-4 text-muted">%</span></div>
+                                                                <div class="progress mt-2" style="height: 6px;">
+                                                                    <div class="progress-bar bg-warning" style="width: {{ s.structure_score }}%"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Document View -->
+                                                    <div id="pdfView{{ loop.index }}" class="p-4 pt-2" style="height: calc(100% - 130px);">
+                                                        <div class="bg-white rounded-4 border overflow-hidden shadow-sm h-100">
+                                                            {% if s.file_name.lower().endswith('.pdf') %}
+                                                                <iframe class="pdf-iframe" data-src="{{ url_for('uploaded_file', filename=s.file_name) }}" 
+                                                                        width="100%" height="100%" style="border: none; min-height: 50vh;">
+                                                                </iframe>
+                                                            {% else %}
+                                                                <div class="d-flex flex-column align-items-center justify-content-center h-100 py-5">
+                                                                    <i class="bi bi-file-word text-primary display-1 mb-3"></i>
+                                                                    <h4 class="fw-bold">Preview Not Available</h4>
+                                                                    <p class="text-muted">Word documents (.docx) cannot be previewed directly in the browser.</p>
+                                                                    <a href="{{ url_for('uploaded_file', filename=s.file_name) }}" download class="btn btn-primary-custom mt-2 px-4 py-2">
+                                                                        <i class="bi bi-cloud-arrow-down-fill me-2"></i> Download Document
+                                                                    </a>
+                                                                </div>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Error View -->
+                                                    <div id="errorView{{ loop.index }}" class="p-4 pt-2" style="display: none;">
+
+                                                        {% if s.has_grammar_issues %}
+                                                            <div class="alert alert-info border-0 rounded-4 mb-4 shadow-sm bg-primary bg-opacity-10 text-primary">
+                                                                <i class="bi bi-info-circle-fill me-2"></i> Hover over highlighted words to see AI suggestions.
+                                                            </div>
+                                                            {% for section, errors in s.grammar_errors.items() %}
+                                                                    <div class="card border border-light-subtle rounded-4 mb-4 shadow-sm">
+                                                                        <div class="card-header bg-light bg-opacity-50 fw-bold text-uppercase small tracking-widest text-center">{{ section }}</div>
+                                                                        <div class="card-body p-4 fs-5 text-main lh-lg document-viewer" style="white-space: pre-wrap; text-align: justify;">
+                                                                            {{ s.highlighted_text|safe if s.highlighted_text else errors['text']|safe }}
+                                                                    </div>
+                                                                </div>
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            <div class="text-center py-5">
+                                                                <i class="bi bi-check-all text-success display-1 mb-3"></i>
+                                                                <h4 class="fw-bold">No Errors Found</h4>
+                                                                <p class="text-muted">The document structure and syntax appear to be perfect.</p>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox text-muted display-4 mb-3"></i>
+                <p class="text-muted">Everything is up to date. No new submissions.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Lazy load PDF iframes when modal is shown
+    var modals = document.querySelectorAll('.modal');
+    modals.forEach(function(modal) {
+        modal.addEventListener('show.bs.modal', function() {
+            var iframe = modal.querySelector('.pdf-iframe');
+            if (iframe && !iframe.getAttribute('src')) {
+                iframe.setAttribute('src', iframe.getAttribute('data-src'));
+            }
+        });
+    });
+});
+
+
+
+function showMode(index, mode) {
+    const pdfView = document.getElementById(`pdfView${index}`);
+    const errorView = document.getElementById(`errorView${index}`);
+    const btnDoc = document.getElementById(`btnDoc${index}`);
+    const btnErr = document.getElementById(`btnErr${index}`);
+
+    if(mode === 'document') {
+        pdfView.style.display = 'block';
+        errorView.style.display = 'none';
+        btnDoc.classList.add('btn-primary-custom');
+        btnDoc.classList.remove('btn-outline-custom');
+        btnErr.classList.add('btn-outline-custom');
+        btnErr.classList.remove('btn-primary-custom');
+    } else {
+        pdfView.style.display = 'none';
+        errorView.style.display = 'block';
+        btnDoc.classList.remove('btn-primary-custom');
+        btnDoc.classList.add('btn-outline-custom');
+        btnErr.classList.add('btn-primary-custom');
+        btnErr.classList.remove('btn-outline-custom');
+    }
+}
+
+function filterSubmissions() {
+    const query = document.getElementById('submissionSearch').value.toLowerCase().trim();
+    const table = document.getElementById('submissionTable');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+    const feedback = document.getElementById('searchFeedback');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        // the first cell contains student name and email
+        const studentCell = row.querySelector('td:first-child');
+        if (studentCell) {
+            const text = studentCell.textContent.toLowerCase();
+            if (!query || text.includes(query)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+
+    if (query) {
+        feedback.style.display = 'block';
+        feedback.innerHTML = `<i class="bi bi-funnel-fill me-1"></i> Showing <strong>${visibleCount}</strong> matching submissions`;
+    } else {
+        feedback.style.display = 'none';
+    }
+}
+</script>
+
+<style>
+    .tracking-widest { letter-spacing: 0.1em; }
+    .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .document-viewer .error-word {
+        background-color: rgba(255, 0, 0, 0.15) !important;
+        border-bottom: 2px dashed #ff4d4f;
+        border-radius: 4px;
+        padding: 0 4px;
+        position: relative;
+        cursor: pointer;
+        display: inline-block;
+        transition: background-color 0.2s ease;
+    }
+    
+    .document-viewer .error-word:hover {
+        background-color: rgba(255, 0, 0, 0.25) !important;
+    }
+    
+    .document-viewer .error-word::after {
+        content: "Suggestion: " attr(data-suggestions);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-main);
+        color: white;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        margin-bottom: 8px;
+        pointer-events: none;
+    }
+    
+    .document-viewer .error-word::before {
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: var(--text-main) transparent transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        margin-bottom: -4px;
+        z-index: 10;
+        pointer-events: none;
+    }
+    
+    .document-viewer .error-word:hover::after,
+    .document-viewer .error-word:hover::before {
+        opacity: 1;
+        visibility: visible;
+    }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<!-- Plagiarism Scan Modal -->
+<div class="modal fade" id="plagiarismModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem; overflow: hidden;">
+            <div class="px-4 py-4" style="background: linear-gradient(135deg, var(--primary-blue), #001540);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h4 class="modal-title fw-bold text-white mb-1"><i class="bi bi-globe2 me-2 text-primary-gold"></i> Live Internet Plagiarism Report</h4>
+                        <p class="text-white-50 mb-0 small">Scanned against billions of active web pages and databases.</p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <!-- Loading State -->
+                <div id="plagLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary-custom mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="fw-bold text-dark">Scanning the Web...</h5>
+                    <p class="text-muted">Comparing text patterns across the internet.</p>
+                </div>
+
+                <!-- Results State -->
+                <div id="plagResults" style="display: none;">
+                    <div class="text-center mb-4">
+                        <h1 class="display-1 fw-bold" id="plagScoreText" style="color: var(--primary-blue);">0%</h1>
+                        <p class="text-muted text-uppercase fw-bold letter-spacing-1">Matched Internet Content</p>
+                    </div>
+                    
+                    <h6 class="fw-bold mb-3 border-bottom pb-2">Identified Sources</h6>
+                    <div id="plagSourcesList" class="d-flex flex-column gap-2">
+                        <!-- Sources will be injected here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top-0 p-3">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close Report</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function runPlagiarismScan(filename) {
+    // Attempt to locate button by finding the one that was clicked
+    let btn = event.currentTarget || document.activeElement;
+    
+    const modal = new bootstrap.Modal(document.getElementById('plagiarismModal'));
+    
+    // Show modal in loading state
+    document.getElementById('plagLoading').style.display = 'block';
+    document.getElementById('plagResults').style.display = 'none';
+    modal.show();
+
+    // Temporarily mutate button
+    let originalHtml = btn.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Scanning...`;
+    }
+
+    fetch(`/check_web_plagiarism/${encodeURIComponent(filename)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert("Error: " + data.error);
+                modal.hide();
+                return;
+            }
+
+            // Update UI
+            document.getElementById('plagLoading').style.display = 'none';
+            document.getElementById('plagResults').style.display = 'block';
+            
+            const scoreHtml = document.getElementById('plagScoreText');
+            scoreHtml.innerText = `${data.score}%`;
+            
+            if (data.status === 'danger') {
+                scoreHtml.style.color = '#dc3545'; // Bootstrap Danger Red
+            } else if (data.status === 'success') {
+                scoreHtml.style.color = '#198754'; // Bootstrap Success Green
+            } else {
+                scoreHtml.style.color = 'var(--primary-blue)';
+            }
+
+            const sourcesList = document.getElementById('plagSourcesList');
+            sourcesList.innerHTML = '';
+            
+            if (data.sources.length === 0) {
+                sourcesList.innerHTML = `<div class="alert alert-success border-0 bg-success bg-opacity-10 text-success fw-medium"><i class="bi bi-shield-check me-2"></i> No matching sources found on the web. This document appears fully original.</div>`;
+            } else {
+                data.sources.forEach(source => {
+                    sourcesList.innerHTML += `
+                        <div class="bg-white p-3 rounded-3 border shadow-sm d-flex justify-content-between align-items-center">
+                            <div class="text-truncate pe-3" style="max-width: 80%;">
+                                <a href="${source.url}" target="_blank" class="text-decoration-none fw-medium text-primary-custom">
+                                    <i class="bi bi-link-45deg"></i> ${source.url}
+                                </a>
+                            </div>
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">
+                                ${source.match} match
+                            </span>
+                        </div>
+                    `;
+                });
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Failed to reach plagiarism server.");
+            modal.hide();
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+}
+</script>
+
+{% endblock %}

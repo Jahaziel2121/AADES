@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-5">
+        <div>
+            <h1 class="display-6 fw-bold mb-1">Welcome, {{ user.full_name|title if user.full_name else 'Administrator'
+                }}</h1>
+            <p class="text-muted mb-0">System-wide management of users, submissions, and platform health.</p>
+        </div>
+        <div class="mt-3 mt-md-0 d-flex gap-2">
+            <a href="{{ url_for('admin_criteria') }}" class="btn btn-outline-custom">
+                <i class="bi bi-list-check me-2"></i> Criteria
+            </a>
+            <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-custom">
+                <i class="bi bi-terminal me-2"></i> Logs
+            </a>
+            <span class="badge bg-dark px-3 py-2 rounded-pill shadow-sm d-flex align-items-center ms-2">
+                <i class="bi bi-shield-lock-fill me-1"></i> Administrator
+            </span>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-5">
+        <div class="col-6 col-lg-3">
+            <div class="card card-custom border-0 shadow-sm h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="display-4 fw-bold text-primary-custom mb-1">{{ stats.total_users }}</div>
+                    <div class="text-muted small fw-bold text-uppercase" style="letter-spacing: 0.08em;">Total Users
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card card-custom border-0 shadow-sm h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="display-4 fw-bold text-info mb-1">{{ stats.students }}</div>
+                    <div class="text-muted small fw-bold text-uppercase" style="letter-spacing: 0.08em;">Students</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card card-custom border-0 shadow-sm h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="display-4 fw-bold text-warning mb-1">{{ stats.supervisors }}</div>
+                    <div class="text-muted small fw-bold text-uppercase" style="letter-spacing: 0.08em;">Supervisors
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card card-custom border-0 shadow-sm h-100">
+                <div class="card-body p-4 text-center">
+                    <div class="display-4 fw-bold text-success mb-1">{{ stats.submissions }}</div>
+                    <div class="text-muted small fw-bold text-uppercase" style="letter-spacing: 0.08em;">Submissions
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- User Management -->
+        <div class="col-lg-8">
+            <div class="card card-custom border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="fw-bold mb-0">User Management</h4>
+                        <button class="btn btn-primary-custom btn-sm px-4" data-bs-toggle="modal"
+                            data-bs-target="#addUserModal">
+                            <i class="bi bi-person-plus-fill me-2"></i> Add User
+                        </button>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="mb-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-2 border-end-0 rounded-start-3">
+                                <i class="bi bi-search text-muted"></i>
+                            </span>
+                            <input type="text" id="userSearch"
+                                class="form-control border-2 border-start-0 rounded-end-3 py-2"
+                                placeholder="Search by Student ID, name, or email..." oninput="filterUsers()">
+                        </div>
+                        <div id="searchFeedback" class="text-muted small mt-2" style="display:none;"></div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-custom align-middle mb-0" id="userTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in all_users %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle me-3 
+                                                {{ 'bg-primary' if u.role == 'student' else ('bg-warning' if u.role == 'supervisor' else 'bg-dark') }} 
+                                                bg-opacity-10">
+                                                <i
+                                                    class="bi {{ 'bi-mortarboard-fill text-primary' if u.role == 'student' else ('bi-person-workspace text-warning' if u.role == 'supervisor' else 'bi-shield-fill text-dark') }}"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ u.full_name }}</div>
+                                                <small class="text-muted font-monospace">ID: {{ u.student_id or '—'
+                                                    }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-muted small">{{ u.email }}</td>
+                                    <td>
+                                        <span
+                                            class="badge rounded-pill px-3 py-2 
+                                            {{ 'bg-primary bg-opacity-10 text-primary' if u.role == 'student' else ('bg-warning bg-opacity-10 text-warning' if u.role == 'supervisor' else 'bg-dark bg-opacity-10 text-dark') }}">
+                                            {{ u.role|capitalize }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if u.status == 'active' %}
+                                        <span class="text-success fw-bold small"><i
+                                                class="bi bi-check-circle-fill me-1"></i> Active</span>
+                                        {% else %}
+                                        <span class="text-danger fw-bold small"><i class="bi bi-x-circle-fill me-1"></i>
+                                            Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if u.role != 'admin' %}
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <button type="button" class="btn btn-sm btn-outline-primary border-2 px-3"
+                                                data-bs-toggle="modal" data-bs-target="#editUserModal{{ u.user_id }}">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <form method="POST"
+                                                action="{{ url_for('admin_toggle_user', user_id=u.user_id) }}">
+                                                <button type="submit"
+                                                    class="btn btn-sm border-2 px-3 
+                                                    {{ 'btn-outline-danger' if u.status == 'active' else 'btn-outline-success' }}"
+                                                    onclick="return confirm('{{ 'Deactivate' if u.status == 'active' else 'Activate' }} {{ u.full_name }}?')">
+                                                    {{ 'Suspend' if u.status == 'active' else 'Activate' }}
+                                                </button>
+                                            </form>
+                                            <form method="POST"
+                                                action="{{ url_for('admin_delete_user', user_id=u.user_id) }}">
+                                                <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger border-2 px-3"
+                                                    onclick="return confirm('Permanently delete {{ u.full_name }}? This cannot be undone.')">
+                                                    <i class="bi bi-trash3-fill"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted small fst-italic">Protected</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Submissions Sidebar -->
+        <div class="col-lg-4">
+            <div class="card card-custom border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold mb-4">Recent Submissions</h4>
+
+                    {% if all_submissions %}
+                    <div class="list-group list-group-flush">
+                        {% for s in all_submissions[:10] %}
+                        <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-bold small">{{ s.student_name or 'Unknown' }}</div>
+                                    <div class="text-muted" style="font-size: 0.8rem;">{{ s.file_name }}</div>
+                                </div>
+                                <span class="badge bg-light text-primary-custom">{{ s.doc_type|upper }}</span>
+                            </div>
+                            <div class="text-muted mt-1" style="font-size: 0.75rem;">
+                                <i class="bi bi-clock me-1"></i> {{ s.submitted_at or 'N/A' }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox display-5 mb-2"></i>
+                        <p class="mb-0 small">No submissions yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content overflow-hidden border-0 shadow-lg" style="border-radius: 1.5rem;">
+            <!-- Decorative Header Background -->
+            <div class="px-4 py-4 position-relative"
+                style="background: linear-gradient(135deg, var(--primary-blue), #001540);">
+                <div class="position-absolute end-0 top-0 opacity-25 p-3 overflow-hidden"
+                    style="width: 150px; height: 100%;">
+                    <i class="bi bi-person-badge-fill"
+                        style="font-size: 8rem; position: absolute; right: -20px; top: -20px; color: var(--primary-gold);"></i>
+                </div>
+                <div class="position-relative" style="z-index: 2;">
+                    <h4 class="modal-title fw-bold text-white mb-1">Provision New Account</h4>
+                    <p class="text-white-50 mb-0 small">Add a student, supervisor, or administrator to the platform.</p>
+                </div>
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                    data-bs-dismiss="modal" aria-label="Close" style="z-index: 3;"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body p-4 bg-light">
+                <form method="POST" action="{{ url_for('admin_add_user') }}">
+
+                    <!-- Core Credentials -->
+                    <div class="bg-white p-3 rounded-4 border shadow-sm mb-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase"
+                                style="letter-spacing: 0.05em; color: var(--primary-blue);">Full Name</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 border-2"><i
+                                        class="bi bi-person text-muted"></i></span>
+                                <input type="text" name="full_name"
+                                    class="form-control border-2 border-start-0 py-2 bg-light shadow-none"
+                                    placeholder="e.g. John Mensah Doe" required>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small text-uppercase"
+                                style="letter-spacing: 0.05em; color: var(--primary-blue);">Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0 border-2"><i
+                                        class="bi bi-envelope text-muted"></i></span>
+                                <input type="email" name="email"
+                                    class="form-control border-2 border-start-0 py-2 bg-light shadow-none"
+                                    placeholder="e.g. john.doe@upsamail.edu.gh" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Role & Identity -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <div class="bg-white p-3 rounded-4 border shadow-sm h-100">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">University ID</label>
+                                <input type="text" name="student_id"
+                                    class="form-control border-2 py-2 bg-light shadow-none" placeholder="e.g. 1029XXXX">
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="bg-white p-3 rounded-4 border shadow-sm h-100">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">System Role</label>
+                                <select name="role" id="roleSelector"
+                                    class="form-select border-2 py-2 bg-light fw-medium shadow-none cursor-pointer"
+                                    required onchange="toggleStudentFields()">
+                                    <option value="student" selected>🎓 Student</option>
+                                    <option value="supervisor">👨‍🏫 Supervisor</option>
+                                    <option value="admin">🛡️ Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- UPSA Identity (Required for All) -->
+                    <div id="identityField" class="bg-white p-3 rounded-4 border shadow-sm mb-4">
+                        <label class="form-label fw-bold small text-uppercase"
+                            style="letter-spacing: 0.05em; color: var(--primary-blue);">University / Staff ID</label>
+                        <input type="text" name="student_id" class="form-control border-2 py-2 bg-light shadow-none"
+                            placeholder="e.g. 102XXXXX or 201XXXXX" required>
+                    </div>
+
+                    <!-- Academic Profile (UPSA Context) -->
+                    <div class="bg-white p-3 rounded-4 border shadow-sm mb-4">
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">Faculty / School</label>
+                                <select name="faculty"
+                                    class="form-select border-2 py-2 bg-light fw-medium shadow-none cursor-pointer">
+                                    <option value="">Select Faculty...</option>
+                                    <option value="Faculty of Accounting and Finance">Faculty of Accounting and Finance
+                                    </option>
+                                    <option value="Faculty of Management Studies">Faculty of Management Studies</option>
+                                    <option value="Faculty of Information Technology & Communication Studies">Faculty of
+                                        Information Technology & Communication Studies</option>
+                                    <option value="UPSA Law School">UPSA Law School</option>
+                                    <option value="School of Graduate Studies">School of Graduate Studies</option>
+                                    <option value="Office of Doctoral Programmes">Office of Doctoral Programmes</option>
+                                    <option value="Institute of Professional Studies">Institute of Professional Studies
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">Department</label>
+                                <select name="department"
+                                    class="form-select border-2 py-2 bg-light fw-medium shadow-none cursor-pointer">
+                                    <option value="">Select Department...</option>
+                                    <option value="Accounting">Accounting</option>
+                                    <option value="Banking and Finance">Banking and Finance</option>
+                                    <option value="Economics and Actuarial Science">Economics and Actuarial Science
+                                    </option>
+                                    <option value="Information Technology Studies">Information Technology Studies
+                                    </option>
+                                    <option value="Communication Studies">Communication Studies</option>
+                                    <option value="Business Administration">Business Administration</option>
+                                    <option value="Marketing">Marketing</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="studentProgramField" class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase"
+                                style="letter-spacing: 0.05em; color: var(--primary-blue);">Program of Study</label>
+                            <select name="program"
+                                class="form-select border-2 py-2 bg-light fw-medium shadow-none cursor-pointer">
+                                <option value="">Select Program...</option>
+                                <optgroup label="--- Undergraduate Programmes ---">
+                                    <option value="BSc in Accounting">BSc in Accounting</option>
+                                    <option value="BSc in Accounting and Finance">BSc in Accounting and Finance</option>
+                                    <option value="BSc in Actuarial Science">BSc in Actuarial Science</option>
+                                    <option value="BSc in Applied Marketing">BSc in Applied Marketing</option>
+                                    <option value="BSc in Applied Statistics">BSc in Applied Statistics</option>
+                                    <option value="BSc in Banking and Finance">BSc in Banking and Finance</option>
+                                    <option value="BSc in Business Economics">BSc in Business Economics</option>
+                                    <option value="BSc in Data Science and Analytics">BSc in Data Science and Analytics
+                                    </option>
+                                    <option value="BSc in Information Technology">BSc in Information Technology</option>
+                                    <option value="BSc in Logistics and Transport Management">BSc in Logistics and
+                                        Transport Management</option>
+                                    <option value="BSc in Real Estate Management and Finance">BSc in Real Estate
+                                        Management and Finance</option>
+                                    <option value="BA in Applied French and Communications">BA in Applied French and
+                                        Communications</option>
+                                    <option value="BA in Communication Studies">BA in Communication Studies</option>
+                                    <option value="BA in Public Relations Management">BA in Public Relations Management
+                                    </option>
+                                    <option value="Bachelor of Business Administration">Bachelor of Business
+                                        Administration</option>
+                                    <option value="Bachelor of Laws (LLB)">Bachelor of Laws (LLB)</option>
+                                </optgroup>
+                                <optgroup label="--- Diploma Programmes ---">
+                                    <option value="Diploma in Accounting">Diploma in Accounting</option>
+                                    <option value="Diploma in Information Technology Management">Diploma in Information
+                                        Technology Management</option>
+                                    <option value="Diploma in Management">Diploma in Management</option>
+                                    <option value="Diploma in Marketing">Diploma in Marketing</option>
+                                    <option value="Diploma in Public Relations">Diploma in Public Relations</option>
+                                </optgroup>
+                                <optgroup label="--- Postgraduate & Professional ---">
+                                    <option value="Master's Degree (MA/MSc/MBA/LLM)">Master's Degree (MA/MSc/MBA/LLM)
+                                    </option>
+                                    <option value="Doctor of Philosophy (PhD)">Doctor of Philosophy (PhD)</option>
+                                    <option value="Professional Programme (ICAG/ACCA/CIMA/CIM)">Professional Programme
+                                        (ICAG/ACCA/CIMA/CIM)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div id="studentSectionField">
+                            <label class="form-label fw-bold small text-uppercase"
+                                style="letter-spacing: 0.05em; color: var(--primary-blue);">Academic Section</label>
+                            <select name="section"
+                                class="form-select border-2 py-2 bg-light fw-medium shadow-none cursor-pointer">
+                                <option value="">Select Section...</option>
+                                <option value="Regular">Regular</option>
+                                <option value="Evening School">Evening School</option>
+                                <option value="Weekend School">Weekend School</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Security -->
+                    <div class="bg-white p-3 rounded-4 border shadow-sm mb-4">
+                        <label class="form-label fw-bold small text-uppercase"
+                            style="letter-spacing: 0.05em; color: var(--primary-blue);">Temporary Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 border-2"><i
+                                    class="bi bi-key text-muted"></i></span>
+                            <input type="password" name="password"
+                                class="form-control border-2 border-start-0 py-2 bg-light shadow-none"
+                                placeholder="••••••••" required minlength="6">
+                        </div>
+                        <div class="form-text small mt-2"><i class="bi bi-info-circle me-1"></i>Must be at least 6
+                            characters long.</div>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-primary-custom w-100 py-3 fw-bold rounded-pill shadow"
+                        style="transition: all 0.3s; font-size: 1.1rem;">
+                        <i class="bi bi-person-plus-fill me-2"></i> Register Account
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modals -->
+{% for u in all_users %}
+{% if u.role != 'admin' %}
+<div class="modal fade" id="editUserModal{{ u.user_id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content overflow-hidden border-0 shadow-lg" style="border-radius: 1.5rem;">
+            <div class="px-4 py-4 position-relative"
+                style="background: linear-gradient(135deg, var(--primary-blue), #001540);">
+                <div class="position-relative" style="z-index: 2;">
+                    <h4 class="modal-title fw-bold text-white mb-1">Edit User Profile</h4>
+                    <p class="text-white-50 mb-0 small">Updating information for {{ u.full_name }}</p>
+                </div>
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
+                    data-bs-dismiss="modal" aria-label="Close" style="z-index: 3;"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <form method="POST" action="{{ url_for('admin_edit_user', user_id=u.user_id) }}">
+                    <!-- Core Credentials -->
+                    <div class="bg-white p-3 rounded-4 border shadow-sm mb-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase"
+                                style="letter-spacing: 0.05em; color: var(--primary-blue);">Full Name</label>
+                            <input type="text" name="full_name" class="form-control border-2 shadow-none"
+                                value="{{ u.full_name }}" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold small text-uppercase"
+                                style="letter-spacing: 0.05em; color: var(--primary-blue);">Email Address</label>
+                            <input type="email" name="email" class="form-control border-2 shadow-none"
+                                value="{{ u.email }}" required>
+                        </div>
+                    </div>
+
+                    <!-- UPSA Identity -->
+                    <div class="bg-white p-3 rounded-4 border shadow-sm mb-4">
+                        <label class="form-label fw-bold small text-uppercase"
+                            style="letter-spacing: 0.05em; color: var(--primary-blue);">University / Staff ID</label>
+                        <input type="text" name="student_id" class="form-control border-2 mb-3 shadow-none"
+                            value="{{ u.student_id or '' }}">
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">Faculty / School</label>
+                                <input type="text" name="faculty" class="form-control border-2 shadow-none"
+                                    value="{{ u.faculty or '' }}">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">Department</label>
+                                <input type="text" name="department" class="form-control border-2 shadow-none"
+                                    value="{{ u.department or '' }}">
+                            </div>
+                        </div>
+
+                        {% if u.role == 'student' %}
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">Program</label>
+                                <input type="text" name="program" class="form-control border-2 shadow-none"
+                                    value="{{ u.program or '' }}">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-bold small text-uppercase"
+                                    style="letter-spacing: 0.05em; color: var(--primary-blue);">Section</label>
+                                <select name="section" class="form-select border-2 shadow-none">
+                                    <option value="" {% if not u.section %}selected{% endif %}>Select...</option>
+                                    <option value="Regular" {% if u.section=='Regular' %}selected{% endif %}>Regular
+                                    </option>
+                                    <option value="Evening School" {% if u.section=='Evening School' %}selected{% endif
+                                        %}>Evening School</option>
+                                    <option value="Weekend School" {% if u.section=='Weekend School' %}selected{% endif
+                                        %}>Weekend School</option>
+                                </select>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary-custom w-100 py-3 fw-bold rounded-pill shadow"
+                        style="transition: all 0.3s; font-size: 1.1rem;">
+                        <i class="bi bi-person-check-fill me-2"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<style>
+    .avatar-circle {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<script>
+    function toggleStudentFields() {
+        const role = document.getElementById('roleSelector').value;
+        const studentOnlyItems = [
+            document.getElementById('studentProgramField'),
+            document.getElementById('studentSectionField')
+        ];
+
+        if (role === 'student') {
+            studentOnlyItems.forEach(el => el.style.display = 'block');
+        } else {
+            studentOnlyItems.forEach(el => el.style.display = 'none');
+        }
+    }
+
+    // Ensure correct initial state
+    document.addEventListener('DOMContentLoaded', toggleStudentFields);
+
+    function filterUsers() {
+        const query = document.getElementById('userSearch').value.toLowerCase().trim();
+        const table = document.getElementById('userTable');
+        const rows = table.querySelectorAll('tbody tr');
+        const feedback = document.getElementById('searchFeedback');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            if (!query || text.includes(query)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (query) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = `<i class="bi bi-funnel-fill me-1"></i> Showing <strong>${visibleCount}</strong> of <strong>${rows.length}</strong> users`;
+        } else {
+            feedback.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

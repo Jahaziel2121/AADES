@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-5">
+        <div>
+            <h1 class="display-6 fw-bold mb-1">Hello, {{ user.full_name }} 👋</h1>
+            {% if user.program or user.department %}
+                <p class="text-muted mb-0"><i class="bi bi-mortarboard-fill text-primary-custom me-2" style="color: var(--primary-gold);"></i> 
+                    {{ user.program }}{% if user.program and user.department %} • {% endif %}{{ user.department }}
+                </p>
+            {% else %}
+                <p class="text-muted mb-0">Welcome back to your academic evaluation portal.</p>
+            {% endif %}
+        </div>
+        <div class="mt-3 mt-md-0 d-flex flex-column align-items-md-end gap-2">
+            <span class="badge bg-primary-custom px-3 py-2 rounded-pill shadow-sm" style="width: fit-content;">
+                <i class="bi bi-person-fill me-1"></i> Student ID: #{{ user.student_id }}
+            </span>
+            {% if user.section %}
+            <span class="badge bg-white text-primary-custom border px-3 py-2 rounded-pill shadow-sm" style="width: fit-content; font-weight: 600;">
+                <i class="bi bi-clock-history me-1"></i> {{ user.section }}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card card-custom h-100 border-0 shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <div class="icon-shape bg-primary bg-opacity-10 text-primary rounded-circle mb-3 mx-auto">
+                        <i class="bi bi-file-earmark-plus fs-3 text-primary-custom"></i>
+                    </div>
+                    <h5 class="fw-bold">Ready to Evaluate?</h5>
+                    <p class="text-muted small mb-4">Check your document structure and grammar before submitting.</p>
+                    <a href="{{ url_for('upload') }}" class="btn btn-primary-custom w-100 py-2">
+                        Start Evaluation
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card card-custom h-100 border-0 shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <div class="icon-shape bg-warning bg-opacity-10 text-warning rounded-circle mb-3 mx-auto">
+                        <i class="bi bi-book fs-3 text-warning"></i>
+                    </div>
+                    <h5 class="fw-bold">Academic Library</h5>
+                    <p class="text-muted small mb-4">Access approved reference documents from the faculty.</p>
+                    <a href="{{ url_for('library') }}" class="btn btn-outline-custom w-100 py-2">
+                        Browse Library
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card card-custom h-100 border-0 shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <div class="icon-shape bg-info bg-opacity-10 text-info rounded-circle mb-3 mx-auto">
+                        <i class="bi bi-bell fs-3 text-info"></i>
+                    </div>
+                    <h5 class="fw-bold">Stay Updated</h5>
+                    <p class="text-muted small mb-4">View recent feedback and comments from your supervisors.</p>
+                    <a href="{{ url_for('notifications') }}" class="btn btn-outline-custom w-100 py-2">
+                        View Notifications
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submissions History -->
+    <div class="card card-custom border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <h4 class="fw-bold mb-4">My Submissions</h4>
+            <div class="table-responsive">
+                <table class="table table-custom align-middle">
+                    <thead>
+                        <tr>
+                            <th>Document</th>
+                            <th>Type</th>
+                            <th>Similarity</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Feedback</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if all_submissions %}
+                            {% for sub in all_submissions %}
+                            <tr>
+                                <td class="fw-bold">{{ sub.file_name }}</td>
+                                <td><span class="badge bg-light text-dark">{{ sub.doc_type|upper }}</span></td>
+                                <td>
+                                    {% if sub.similarity_score > 15 %}
+                                        <span class="text-danger fw-bold small"><i class="bi bi-exclamation-triangle-fill"></i> {{ sub.similarity_score }}%</span>
+                                    {% else %}
+                                        <span class="text-success fw-bold small"><i class="bi bi-shield-check"></i> {{ sub.similarity_score }}%</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ sub.submitted_at }}</td>
+                                <td>
+                                    {% if sub.status == 'reviewed' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 rounded-pill">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Reviewed
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle px-3 py-2 rounded-pill">
+                                            <i class="bi bi-hourglass-split me-1"></i> Pending
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if sub.supervisor_feedback %}
+                                        <div class="d-flex align-items-start gap-2">
+                                            <i class="bi bi-chat-dots-fill text-primary-custom mt-1"></i>
+                                            <div>
+                                                <span class="small text-dark">{{ sub.supervisor_feedback }}</span>
+                                                {% if sub.reviewer_name %}
+                                                    <div class="text-muted small mt-1"><i class="bi bi-person-fill me-1"></i>{{ sub.reviewer_name }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted small">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-5 d-block mb-3"></i>
+                                No submissions yet. Start by evaluating a document.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Last Evaluation Result (if any) -->
+    {% if last_result %}
+    <div class="card card-custom border-0 shadow-sm">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold mb-0">Last Evaluation</h4>
+                <div>
+                    <span class="badge bg-primary-custom px-3 py-2 rounded-pill me-2">{{ last_result.structure.structure_score }}% Structure</span>
+                    <span class="badge {{ 'bg-danger' if last_result.similarity > 15 else 'bg-success' }} px-3 py-2 rounded-pill">
+                        {{ last_result.similarity }}% Similarity
+                    </span>
+                </div>
+            </div>
+            <p class="text-muted small mb-3">File: <span class="fw-bold text-dark">{{ last_result.filename }}</span></p>
+            <a href="{{ url_for('upload') }}" class="btn btn-outline-custom">View Full Results →</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .icon-shape {
+        width: 64px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+{% endblock %}
