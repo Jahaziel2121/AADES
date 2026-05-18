@@ -681,6 +681,78 @@ The system uses session-based authentication with Flask sessions. Passwords are 
 
 The database contains seven tables: users for account information, submissions for document records, notifications for the alert system, comments for lecturer feedback, evaluation_criteria for legacy criteria storage, evaluation_rules for the advanced JSON-based rule engine, and system_logs for audit tracking.
 
+The following subsections describe the key interfaces and functionalities of the AADES system, organized by user-facing page.
+
+
+4.4.1 System Authentication / Login Page
+
+The Login Page serves as the single entry point to the AADES platform. It is the first screen presented to any user who accesses the system and is responsible for authenticating all three user roles — Students, Supervisors, and Administrators — through a unified interface.
+
+The page displays a centred authentication card with a welcoming heading ("Welcome back") and a brief instructional subtitle ("Enter your credentials to access your dashboard"). Below this, two form fields are presented: an Email Address field and a Password field. Both fields are required and include placeholder text to guide user input. A "Forgot password?" link is included for future password recovery functionality. The primary call-to-action is a "Sign In" button that submits the credentials to the server for validation.
+
+When a user submits the login form, the system queries the users table in the SQLite database to locate a matching email address. If the user exists and their account status is "active", the entered password is verified against the stored hash using Werkzeug's PBKDF2-SHA256 check_password_hash function. Upon successful authentication, the user's complete profile (including user_id, full_name, email, role, student_id, faculty, department, program, and section) is stored in the Flask server-side session, and the user is redirected to the appropriate role-specific dashboard. If authentication fails — either due to an incorrect password or a non-existent email — a red error alert is displayed on the same page with the message "Invalid email or password." If the user's account has been suspended by an administrator (status is not "active"), the system displays the message "Your account is not active."
+
+Every login attempt, whether successful or failed, is recorded in the system_logs table with a timestamp and descriptive action text (e.g., "Logged in successfully", "Failed login attempt (bad password)", or "Failed login attempt (user not found)"), providing a full audit trail accessible to administrators.
+
+The login page uses a dedicated stylesheet (auth.css) separate from the main application theme, creating a clean, distraction-free authentication experience without the navigation bar or footer present on other pages.
+
+
+4.4.2 Admin Dashboard Page
+
+The Admin Dashboard is the central management console for system administrators. It is accessible only to users with the "admin" role and provides a comprehensive overview of the entire platform's users and submissions, along with tools for account management.
+
+At the top of the page, a personalized welcome header greets the administrator by name and displays the subtitle "System-wide management of users, submissions, and platform health." Two quick-access buttons — Criteria and Logs — are placed alongside an "Administrator" badge, providing direct navigation to the Evaluation Criteria editor and the System Audit Logs viewer respectively.
+
+Below the header, four summary statistics cards are displayed in a horizontal row, each showing a key platform metric in large, bold typography: Total Users (the combined count of students and supervisors), Students (the number of registered student accounts), Supervisors (the number of registered supervisor accounts), and Submissions (the total number of documents submitted across the platform). These cards give the administrator an at-a-glance overview of platform activity and scale.
+
+The main body of the dashboard is divided into two sections. The left panel (occupying two-thirds of the width) contains the User Management table. This table lists every registered user in the system and displays their Full Name (with a role-specific icon — a mortarboard for students, a workspace icon for supervisors, and a shield for admins), their University/Staff ID, Email address, Role (shown as a colour-coded badge — blue for Student, yellow for Supervisor, dark for Admin), and Status (shown as either a green "Active" indicator with a checkmark or a red "Inactive" indicator with a cross icon). A search bar above the table allows the administrator to filter users in real time by typing a student ID, name, or email, with a feedback indicator showing how many results match the query.
+
+For each non-admin user, three action buttons are provided: an Edit button (pencil icon) that opens an Edit User modal, a Suspend/Activate toggle button that changes the user's account status, and a Delete button (trash icon) that permanently removes the user after confirmation. The admin account itself is marked as "Protected" and cannot be edited, suspended, or deleted, ensuring the system always has at least one active administrator.
+
+The Add User button at the top of the user table opens a "Provision New Account" modal. This modal features a gradient header and is organized into grouped sections: Core Credentials (Full Name and Email Address), Role and Identity (University ID and a System Role dropdown offering Student, Supervisor, or Admin), Academic Profile (Faculty/School, Department, Program of Study, and Academic Section — the latter two fields are dynamically shown or hidden based on the selected role using JavaScript), and Security (a Temporary Password field with a minimum length requirement of 6 characters). The "Register Account" button submits the form and creates the user with a hashed password.
+
+The Edit User modal mirrors the structure of the Add User modal but pre-populates all fields with the selected user's current data. It allows the administrator to update the user's name, email, university ID, faculty, department, and — for student accounts — program and academic section.
+
+The right panel (occupying one-third of the width) displays a Recent Submissions sidebar. This panel lists the ten most recent document submissions across the platform, showing the student's name, the uploaded file name, the document type (as an uppercase badge), and the submission timestamp. If no submissions exist, a placeholder message with an inbox icon is displayed.
+
+
+4.4.3 Student Dashboard Page
+
+The Student Dashboard is the primary landing page for authenticated student users. It provides an overview of the student's academic profile, quick access to core system features, a complete history of all their submissions, and a summary of their most recent evaluation results.
+
+The header section displays a personalized greeting ("Hello, [Student Name]") accompanied by the student's academic details — their Program of Study and Department — if available. On the right side of the header, the student's University ID is shown inside a branded badge, and their Academic Section (Regular, Evening School, or Weekend School) is displayed in a secondary badge if assigned.
+
+Three Quick Action cards are presented in a horizontal row, each featuring a distinctive icon, a title, a brief description, and a call-to-action button. The first card, "Ready to Evaluate?", directs the student to the document upload and evaluation page where they can check their document's structure and grammar before submitting. The second card, "Academic Library", links to the Document Library where students can access supervisor-approved reference documents from the faculty. The third card, "Stay Updated", links to the Notifications page where students can view recent feedback and comments from their supervisors.
+
+Below the quick action cards, a full-width "My Submissions" table displays every document the student has submitted to the system. Each row in the table shows the Document name (the uploaded file name), the document Type (displayed as an uppercase badge, e.g., "PROJECT", "PROPOSAL"), the Similarity score (colour-coded — green with a shield-check icon if below 15%, or red with a warning icon if above 15%), the Date of submission, the review Status (shown as a rounded pill badge — an orange "Pending" badge with an hourglass icon if the supervisor has not yet reviewed the document, or a green "Reviewed" badge with a checkmark icon if the supervisor has completed their review), and the Feedback column (displaying the supervisor's comment text along with the reviewer's name, or a dash if no feedback has been provided yet). If the student has no submissions, a centred placeholder message with an inbox icon reads "No submissions yet. Start by evaluating a document."
+
+At the bottom of the page, if the student has recently evaluated a document during the current session, a "Last Evaluation" card appears. This card summarizes the most recent AI evaluation results, showing the Structure Score and Similarity Score as badge-style indicators, the evaluated file name, and a link to view the full detailed results on the evaluation page.
+
+
+4.4.4 Supervisor Dashboard Page
+
+The Supervisor Dashboard is the review and submission management interface for lecturer users. It provides supervisors with a comprehensive view of all student submissions assigned to them, along with tools to review documents, provide feedback, manage review statuses, and archive completed work.
+
+The header section welcomes the supervisor by name and, if available, displays their Department and Faculty affiliation. Two navigation buttons are positioned to the right: "View Archives" (which navigates to the archive view showing previously archived submissions) and "Manage Events" (which links to the event management page where supervisors can schedule academic deadlines). When viewing the archive, the "View Archives" button is replaced by a "Back to Dashboard" button, allowing seamless navigation between active and archived submissions.
+
+Three statistics cards are displayed below the header (visible only on the main dashboard, not in archive view), each featuring a gradient-coloured circular icon: Total Submissions (showing the cumulative count of all submissions ever assigned to the supervisor, including archived ones), Pending Review (showing the number of submissions that have not yet been marked as reviewed, displayed in orange), and Reviewed (showing the number of submissions the supervisor has explicitly marked as reviewed, displayed in green).
+
+The core of the dashboard is the Student Submissions table. A search bar above the table allows the supervisor to filter submissions by student name or email in real time, with a feedback indicator showing the number of matching results. The table has four columns: Student, Document Info, Comment/Feedback, and Actions.
+
+The Student column displays the student's full name as a clickable link. Clicking the name opens a Student Profile modal that presents the student's complete academic identity — a profile avatar, full name, University ID, an "Email Student" button (which opens the default email client), and their academic assignment details including Faculty/School, Department, Program of Study, and Academic Section. The student's email address is also shown beneath their name in the main table.
+
+The Document Info column shows the uploaded file name and two badges: the document type (e.g., "PROJECT", "ESSAY") and the similarity score. The similarity score is colour-coded — a green badge reading "X% Similarity" with a shield-check icon if the score is at or below 15%, or a red badge with a warning icon if it exceeds 15%, alerting the supervisor to potential plagiarism.
+
+The Comment/Feedback column contains an inline form with a text input field and a "Save" button, allowing the supervisor to type and save feedback comments directly from the table without opening a separate page. If a previous comment exists, it is pre-populated in the input field for editing.
+
+The Actions column provides several controls depending on the submission's current status. A "Review" button opens a full-screen Document Review modal. Within this modal, the supervisor has access to a tabbed interface with three options: "View Document" (which renders the PDF in an embedded iframe or shows a download prompt for DOCX files), "Syntax Errors" (which displays the document text with grammar errors highlighted in red — hovering over highlighted words reveals AI-generated correction suggestions in a tooltip), and "Web Plagiarism Scan" (which triggers a live internet plagiarism check and presents the results in a dedicated modal showing the overall match percentage and a list of identified source URLs with their match percentages). A "Download" button is also available to save the original file locally.
+
+Above the document and error views, an analytics dashboard displays three AI-computed scores: AI Evaluation (a weighted composite of grammar and structure scores), Grammar Accuracy (the percentage of text free from grammar errors), and Structure Compliance (a score reflecting structural adherence to the selected document type). Each score includes a progress bar for visual representation.
+
+If a submission's status is "Pending", a green "Mark Reviewed" button is displayed. Clicking it (with a confirmation prompt) explicitly changes the submission's status to "reviewed", which is then reflected on the student's dashboard. This action is decoupled from commenting — a supervisor can add feedback without marking the submission as reviewed, and vice versa. Once marked as reviewed, a green "Reviewed" badge replaces the button, and an "Archive" button appears, allowing the supervisor to move the completed submission to the archive view and declutter the main dashboard. A "Library" button allows the supervisor to promote a high-quality submission to the Document Library, making it available as a reference document for all students.
+
+In the archive view, the "Archive" and "Mark Reviewed" buttons are replaced by an "Unarchive" button, which restores the submission to the main active dashboard.
+
 
 4.5 Implementation Challenges
 

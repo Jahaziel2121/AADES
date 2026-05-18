@@ -180,6 +180,19 @@
                                 <div class="fw-medium text-truncate" style="max-width: 200px;" title="{{ s.file_name }}">{{ s.file_name }}</div>
                                 <div>
                                     <span class="badge bg-light text-primary-custom small me-1">{{ s.doc_type|upper }}</span>
+                                    
+                                    {% if s.ai_detection_score %}
+                                        {% if s.ai_detection_score > 50 %}
+                                            <span class="badge bg-danger bg-opacity-10 text-danger small me-1" title="High AI Probability">
+                                                <i class="bi bi-robot"></i> {{ s.ai_detection_score }}% AI
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-success bg-opacity-10 text-success small me-1" title="Human Written">
+                                                <i class="bi bi-person"></i> {{ s.ai_detection_score }}% AI
+                                            </span>
+                                        {% endif %}
+                                    {% endif %}
+
                                     {% if s.similarity_score > 15 %}
                                         <span class="badge bg-danger bg-opacity-10 text-danger small" title="Plagiarism Alert">
                                             <i class="bi bi-exclamation-triangle-fill"></i> {{ s.similarity_score }}% Similarity
@@ -243,9 +256,9 @@
 
                                 <!-- Premium View Modal -->
                                 <div class="modal fade" id="viewModal{{ loop.index }}" tabindex="-1">
-                                    <div class="modal-dialog modal-xl modal-dialog-centered">
-                                        <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
-                                            <div class="modal-header bg-dark text-white border-0 py-3">
+                                    <div class="modal-dialog modal-xl modal-dialog-centered" id="modalDialog{{ loop.index }}">
+                                        <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg" id="modalContentWrap{{ loop.index }}">
+                                            <div class="modal-header bg-dark text-white border-0 py-3" id="modalHeader{{ loop.index }}">
                                                 <div>
                                                     <h5 class="modal-title fw-bold mb-0">Document Review: {{ s.file_name }}</h5>
                                                     {% if s.status == 'reviewed' %}
@@ -262,10 +275,21 @@
                                                             </button>
                                                         </form>
                                                     {% endif %}
-                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                    <!-- Minimize / Maximize / Close -->
+                                                    <button type="button" class="modal-window-btn" title="Minimize"
+                                                            onclick="minimizeModal({{ loop.index }})">
+                                                        <i class="bi bi-dash-lg"></i>
+                                                    </button>
+                                                    <button type="button" class="modal-window-btn" title="Maximize"
+                                                            id="maxBtn{{ loop.index }}"
+                                                            onclick="maximizeModal({{ loop.index }})">
+                                                        <i class="bi bi-fullscreen" id="maxIcon{{ loop.index }}"></i>
+                                                    </button>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                                            onclick="resetModalState({{ loop.index }})"></button>
                                                 </div>
                                             </div>
-                                            <div class="modal-body p-0 bg-light">
+                                            <div class="modal-body p-0 bg-light text-start">
                                                 <!-- Internal Tabs -->
                                                 <div class="p-3 bg-white border-bottom d-flex justify-content-center gap-3">
                                                     <button id="btnDoc{{ loop.index }}" class="btn btn-primary-custom px-4 active" 
@@ -274,7 +298,11 @@
                                                     </button>
                                                     <button id="btnErr{{ loop.index }}" class="btn btn-outline-custom px-4" 
                                                             onclick="showMode({{ loop.index }}, 'errors')">
-                                                        <i class="bi bi-vector-pen me-2"></i> Syntax Errors
+                                                        <i class="bi bi-vector-pen me-2"></i> Review Details
+                                                    </button>
+                                                    <button id="btnSim{{ loop.index }}" class="btn btn-outline-custom px-4" 
+                                                            onclick="showMode({{ loop.index }}, 'similarity')">
+                                                        <i class="bi bi-bar-chart-fill me-2"></i> Similarity Report
                                                     </button>
                                                     
                                                     <!-- Web Plagiarism Trigger -->
@@ -292,30 +320,62 @@
                                                     <!-- Sticky Analytics Dashboard (Always Visible) -->
                                                     <div class="row g-3 p-4 pb-2">
                                                         <div class="col-md-4">
-                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
-                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Evaluation</div>
-                                                                <div class="display-6 fw-bold" style="color: var(--primary-blue);">{{ s.ai_eval_score }}<span class="fs-4 text-muted">%</span></div>
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center h-100 position-relative">
+                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Detection</div>
+                                                                <div class="display-6 fw-bold text-danger">{{ s.ai_detection_score }}<span class="fs-4 text-muted">%</span></div>
                                                                 <div class="progress mt-2" style="height: 6px;">
-                                                                    <div class="progress-bar bg-primary-custom" style="width: {{ s.ai_eval_score }}%"></div>
+                                                                    <div class="progress-bar bg-danger" style="width: {{ s.ai_detection_score }}%"></div>
                                                                 </div>
+                                                                <div class="mt-1 small text-muted"><i class="bi bi-robot"></i> Probability</div>
                                                             </div>
                                                         </div>
                                                         <div class="col-md-4">
-                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center h-100">
                                                                 <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Grammar Accuracy</div>
                                                                 <div class="display-6 fw-bold text-success">{{ s.grammar_score }}<span class="fs-4 text-muted">%</span></div>
                                                                 <div class="progress mt-2" style="height: 6px;">
                                                                     <div class="progress-bar bg-success" style="width: {{ s.grammar_score }}%"></div>
                                                                 </div>
+                                                                <div class="mt-1 small text-muted"><i class="bi bi-check2-all"></i> Syntax Quality</div>
                                                             </div>
                                                         </div>
                                                         <div class="col-md-4">
-                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center h-100">
                                                                 <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Structure Compliance</div>
                                                                 <div class="display-6 fw-bold" style="color: var(--primary-gold);">{{ s.structure_score }}<span class="fs-4 text-muted">%</span></div>
                                                                 <div class="progress mt-2" style="height: 6px;">
                                                                     <div class="progress-bar bg-warning" style="width: {{ s.structure_score }}%"></div>
                                                                 </div>
+                                                                <div class="mt-1 small text-muted"><i class="bi bi-layout-text-window"></i> Template Match</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="row g-3 px-4 pb-3 justify-content-center">
+                                                        <div class="col-md-4">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center h-100 position-relative">
+                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Similarity Check</div>
+                                                                <div class="display-6 fw-bold text-info">{{ s.similarity_score }}<span class="fs-4 text-muted">%</span></div>
+                                                                <div class="progress mt-2" style="height: 6px;">
+                                                                    <div class="progress-bar bg-info" style="width: {{ s.similarity_score }}%"></div>
+                                                                </div>
+                                                                {% if s.similarity_score >= 98 %}
+                                                                    <div class="mt-1 small text-muted text-truncate" title="Matched against local system">
+                                                                        <i class="bi bi-file-earmark-text"></i> Matches: Submitted Documents
+                                                                    </div>
+                                                                {% else %}
+                                                                    <div class="mt-1 small text-muted"><i class="bi bi-globe"></i> Matches: Online Sources</div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <div class="bg-white p-3 rounded-4 border shadow-sm text-center h-100">
+                                                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Overall AI Evaluation</div>
+                                                                <div class="display-6 fw-bold" style="color: var(--primary-blue);">{{ s.ai_eval_score }}<span class="fs-4 text-muted">%</span></div>
+                                                                <div class="progress mt-2" style="height: 6px;">
+                                                                    <div class="progress-bar bg-primary-custom" style="width: {{ s.ai_eval_score }}%"></div>
+                                                                </div>
+                                                                <div class="mt-1 small text-muted"><i class="bi bi-calculator"></i> Combined Metric</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -363,6 +423,95 @@
                                                             </div>
                                                         {% endif %}
                                                     </div>
+
+                                                    <!-- Similarity Report View -->
+                                                    <div id="similarityView{{ loop.index }}" class="p-5 pt-4 bg-white text-start" style="display: none; min-height: 50vh;">
+                                                        {% if s.similarity_details %}
+                                                        <div class="mb-5">
+                                                            <h1 class="display-4 fw-bold mb-1">{{ s.similarity_details.overall }}% Overall Similarity</h1>
+                                                            <p class="text-muted fs-5">The combined total of all matches, including overlapping sources, for each database.</p>
+                                                        </div>
+
+                                                        <div class="row g-5">
+                                                            <div class="col-md-7">
+                                                                <h4 class="fw-bold mb-4">Match Groups</h4>
+                                                                
+                                                                <div class="d-flex mb-4">
+                                                                    <div class="me-3">
+                                                                        <span class="d-flex align-items-center justify-content-center rounded-circle text-white shadow-sm" style="width: 40px; height: 40px; background-color: #f1525b;">
+                                                                            <i class="bi bi-journal"></i>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h5 class="fw-bold mb-1">{{ s.similarity_details.groups.not_cited.count }} Not Cited or Quoted <span class="text-muted ms-2">{{ s.similarity_details.groups.not_cited.pct }}%</span></h5>
+                                                                        <p class="text-muted mb-0 small">Matches with neither in-text citation nor quotation marks</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="d-flex mb-4">
+                                                                    <div class="me-3">
+                                                                        <span class="d-flex align-items-center justify-content-center rounded-circle text-white shadow-sm" style="width: 40px; height: 40px; background-color: #f68c3e;">
+                                                                            <i class="bi bi-quote"></i>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h5 class="fw-bold mb-1">{{ s.similarity_details.groups.missing_quot.count }} Missing Quotations <span class="text-muted ms-2">{{ s.similarity_details.groups.missing_quot.pct }}%</span></h5>
+                                                                        <p class="text-muted mb-0 small">Matches that are still very similar to source material</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="d-flex mb-4">
+                                                                    <div class="me-3">
+                                                                        <span class="d-flex align-items-center justify-content-center rounded-circle text-dark shadow-sm" style="width: 40px; height: 40px; background-color: #ffe699;">
+                                                                            <i class="bi bi-list"></i>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h5 class="fw-bold mb-1">{{ s.similarity_details.groups.missing_cit.count }} Missing Citation <span class="text-muted ms-2">{{ s.similarity_details.groups.missing_cit.pct }}%</span></h5>
+                                                                        <p class="text-muted mb-0 small">Matches that have quotation marks, but no in-text citation</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="d-flex mb-4">
+                                                                    <div class="me-3">
+                                                                        <span class="d-flex align-items-center justify-content-center rounded-circle text-white shadow-sm" style="width: 40px; height: 40px; background-color: #a3d3c1;">
+                                                                            <i class="bi bi-mortarboard-fill"></i>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h5 class="fw-bold mb-1">{{ s.similarity_details.groups.cited_quoted.count }} Cited and Quoted <span class="text-muted ms-2">{{ s.similarity_details.groups.cited_quoted.pct }}%</span></h5>
+                                                                        <p class="text-muted mb-0 small">Matches with in-text citation present, but no quotation marks</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="col-md-5">
+                                                                <h4 class="fw-bold mb-4">Top Sources</h4>
+                                                                
+                                                                <div class="d-flex justify-content-between align-items-center mb-3 fs-5">
+                                                                    <div class="fw-bold">{{ s.similarity_details.sources.internet }}%</div>
+                                                                    <div class="text-muted text-start flex-grow-1 ms-4"><i class="bi bi-globe me-2"></i>Internet sources</div>
+                                                                </div>
+                                                                
+                                                                <div class="d-flex justify-content-between align-items-center mb-3 fs-5">
+                                                                    <div class="fw-bold">{{ s.similarity_details.sources.publications }}%</div>
+                                                                    <div class="text-muted text-start flex-grow-1 ms-4"><i class="bi bi-book me-2"></i>Publications</div>
+                                                                </div>
+
+                                                                <div class="d-flex justify-content-between align-items-center mb-3 fs-5">
+                                                                    <div class="fw-bold">{{ s.similarity_details.sources.student }}%</div>
+                                                                    <div class="text-muted text-start flex-grow-1 ms-4"><i class="bi bi-person-fill me-2"></i>Submitted works (Student Papers)</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% else %}
+                                                            <div class="text-center py-5 mt-5">
+                                                                <i class="bi bi-shield-check text-success display-1 mb-3"></i>
+                                                                <h4 class="fw-bold">No Similarity Report Available</h4>
+                                                                <p class="text-muted">The document passed the initial checks with 0% similarity.</p>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -395,31 +544,97 @@ document.addEventListener('DOMContentLoaded', function() {
                 iframe.setAttribute('src', iframe.getAttribute('data-src'));
             }
         });
+        // Clean up state on close
+        modal.addEventListener('hidden.bs.modal', function() {
+            modal.classList.remove('modal-minimized', 'modal-maximized');
+        });
     });
 });
 
+// ── Minimize / Maximize helpers ──
+function minimizeModal(index) {
+    const modal = document.getElementById('viewModal' + index);
+    const isMin = modal.classList.contains('modal-minimized');
+    modal.classList.remove('modal-maximized');
+    if (isMin) {
+        // Restore
+        modal.classList.remove('modal-minimized');
+        // Restore backdrop
+        const bd = document.querySelector('.modal-backdrop');
+        if (bd) bd.style.display = '';
+    } else {
+        // Minimize
+        modal.classList.add('modal-minimized');
+        // Hide backdrop without closing modal
+        const bd = document.querySelector('.modal-backdrop');
+        if (bd) bd.style.display = 'none';
+    }
+    // Reset max icon
+    const icon = document.getElementById('maxIcon' + index);
+    if (icon) { icon.className = 'bi bi-fullscreen'; }
+}
 
+function maximizeModal(index) {
+    const modal = document.getElementById('viewModal' + index);
+    const isMax = modal.classList.contains('modal-maximized');
+    modal.classList.remove('modal-minimized');
+    const bd = document.querySelector('.modal-backdrop');
+    if (bd) bd.style.display = '';
+    const icon = document.getElementById('maxIcon' + index);
+    if (isMax) {
+        modal.classList.remove('modal-maximized');
+        if (icon) icon.className = 'bi bi-fullscreen';
+    } else {
+        modal.classList.add('modal-maximized');
+        if (icon) icon.className = 'bi bi-fullscreen-exit';
+    }
+}
+
+function resetModalState(index) {
+    const modal = document.getElementById('viewModal' + index);
+    modal.classList.remove('modal-minimized', 'modal-maximized');
+    const icon = document.getElementById('maxIcon' + index);
+    if (icon) icon.className = 'bi bi-fullscreen';
+}
 
 function showMode(index, mode) {
     const pdfView = document.getElementById(`pdfView${index}`);
     const errorView = document.getElementById(`errorView${index}`);
+    const similarityView = document.getElementById(`similarityView${index}`);
     const btnDoc = document.getElementById(`btnDoc${index}`);
     const btnErr = document.getElementById(`btnErr${index}`);
+    const btnSim = document.getElementById(`btnSim${index}`);
 
     if(mode === 'document') {
         pdfView.style.display = 'block';
         errorView.style.display = 'none';
+        similarityView.style.display = 'none';
         btnDoc.classList.add('btn-primary-custom');
         btnDoc.classList.remove('btn-outline-custom');
         btnErr.classList.add('btn-outline-custom');
         btnErr.classList.remove('btn-primary-custom');
-    } else {
+        btnSim.classList.add('btn-outline-custom');
+        btnSim.classList.remove('btn-primary-custom');
+    } else if(mode === 'errors') {
         pdfView.style.display = 'none';
         errorView.style.display = 'block';
+        similarityView.style.display = 'none';
         btnDoc.classList.remove('btn-primary-custom');
         btnDoc.classList.add('btn-outline-custom');
         btnErr.classList.add('btn-primary-custom');
         btnErr.classList.remove('btn-outline-custom');
+        btnSim.classList.add('btn-outline-custom');
+        btnSim.classList.remove('btn-primary-custom');
+    } else if(mode === 'similarity') {
+        pdfView.style.display = 'none';
+        errorView.style.display = 'none';
+        similarityView.style.display = 'block';
+        btnDoc.classList.remove('btn-primary-custom');
+        btnDoc.classList.add('btn-outline-custom');
+        btnErr.classList.remove('btn-primary-custom');
+        btnErr.classList.add('btn-outline-custom');
+        btnSim.classList.add('btn-primary-custom');
+        btnSim.classList.remove('btn-outline-custom');
     }
 }
 
@@ -461,6 +676,62 @@ function filterSubmissions() {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    /* ── Modal window controls ── */
+    .modal-window-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px; height: 28px;
+        border: none;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background 0.2s;
+        padding: 0;
+    }
+    .modal-window-btn:hover { background: rgba(255,255,255,0.3); }
+
+    /* Maximized state */
+    .modal-maximized .modal-dialog {
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+    }
+    .modal-maximized .modal-dialog .modal-content {
+        height: 100vh !important;
+        border-radius: 0 !important;
+    }
+    .modal-maximized .modal-dialog .modal-body > div[style] {
+        height: calc(100vh - 60px) !important;
+    }
+
+    /* Minimized state – collapses to a floating strip */
+    .modal-minimized {
+        pointer-events: none;
+    }
+    .modal-minimized .modal-dialog {
+        position: fixed !important;
+        bottom: 0;
+        right: 24px;
+        top: auto !important;
+        left: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        width: 340px !important;
+        max-width: 340px !important;
+        pointer-events: all;
+    }
+    .modal-minimized .modal-dialog .modal-content {
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+    }
+    .modal-minimized .modal-body,
+    .modal-minimized .modal-footer { display: none !important; }
+    .modal-minimized .modal-backdrop { display: none !important; }
     .document-viewer .error-word {
         background-color: rgba(255, 0, 0, 0.15) !important;
         border-bottom: 2px dashed #ff4d4f;

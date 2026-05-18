@@ -39,23 +39,26 @@ def _cosine_similarity(tf_a, tf_b):
     return dot / (mag_a * mag_b)
 
 
-def compute_similarity(new_text, existing_texts):
+def compute_similarity(new_text, existing_texts_dict):
     """
-    Compare new_text against a list of existing document texts.
+    Compare new_text against a dict of existing document texts (filename -> text).
 
-    Returns the highest similarity score found (0–100 integer, rounded).
+    Returns a tuple (highest_similarity_score, matched_filename).
+    Score is 0-100 integer. If no texts or match, returns (0, None).
     """
-    if not new_text.strip() or not existing_texts:
-        return 0
+    if not new_text.strip() or not existing_texts_dict:
+        return (0, None)
 
     new_tokens = _tokenize(new_text)
     if not new_tokens:
-        return 0
+        return (0, None)
 
     new_tf = _term_frequency(new_tokens)
 
     max_score = 0.0
-    for existing_text in existing_texts:
+    best_match = None
+    
+    for filename, existing_text in existing_texts_dict.items():
         if not existing_text.strip():
             continue
         ex_tokens = _tokenize(existing_text)
@@ -65,5 +68,6 @@ def compute_similarity(new_text, existing_texts):
         score = _cosine_similarity(new_tf, ex_tf)
         if score > max_score:
             max_score = score
+            best_match = filename
 
-    return min(100, round(max_score * 100))
+    return (min(100, round(max_score * 100)), best_match)

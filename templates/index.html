@@ -97,41 +97,264 @@
         </div>
 
         {% if result and not submission_success %}
-        <!-- AI Analytics Dashboard -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
-                    <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Evaluation</div>
-                    <div class="display-6 fw-bold" style="color: var(--primary-blue);">{{ result.ai_eval_score }}<span class="fs-4 text-muted">%</span></div>
-                    <div class="progress mt-2" style="height: 6px;">
-                        <div class="progress-bar bg-primary-custom" style="width: {{ result.ai_eval_score }}%"></div>
-                    </div>
+        <!-- Document Review Tabbed Interface -->
+        <div class="card card-custom overflow-hidden mb-5 border-0 shadow-lg" id="uploadReviewCard">
+            <!-- Header -->
+            <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-0">Document Review: {{ result.filename }}</h5>
+                    <span class="badge bg-warning text-dark mt-1"><i class="bi bi-hourglass-split me-1"></i> Not Submitted</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="modal-window-btn" title="Minimize" onclick="minUpload()">
+                        <i class="bi bi-dash-lg"></i>
+                    </button>
+                    <button type="button" class="modal-window-btn" title="Maximize" id="maxUploadBtn" onclick="maxUpload()">
+                        <i class="bi bi-fullscreen" id="maxUploadIcon"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" title="Close" onclick="closeUpload()"></button>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
-                    <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Grammar Accuracy</div>
-                    <div class="display-6 fw-bold text-success">{{ result.grammar_score }}<span class="fs-4 text-muted">%</span></div>
-                    <div class="progress mt-2" style="height: 6px;">
-                        <div class="progress-bar bg-success" style="width: {{ result.grammar_score }}%"></div>
+            
+            <!-- Internal Tabs -->
+            <div class="p-3 bg-white border-bottom d-flex justify-content-center gap-3 flex-wrap">
+                <button id="btnDoc" class="btn btn-primary-custom px-4 active" onclick="showMode('document')">
+                    <i class="bi bi-file-earmark-text me-2"></i> View Document
+                </button>
+                <button id="btnErr" class="btn btn-outline-custom px-4" onclick="showMode('errors')">
+                    <i class="bi bi-vector-pen me-2"></i> Review Details
+                </button>
+                <button id="btnSim" class="btn btn-outline-custom px-4" onclick="showMode('similarity')">
+                    <i class="bi bi-bar-chart-fill me-2"></i> Similarity Report
+                </button>
+                <a href="{{ url_for('uploaded_file', filename=result.filename) }}" download class="btn btn-outline-secondary px-4 ms-2">
+                    <i class="bi bi-download me-2"></i> Download
+                </a>
+            </div>
+
+            <div class="bg-light p-0">
+                <!-- Sticky Analytics Dashboard -->
+                <div class="row g-4 mb-5 justify-content-center">
+                    <div class="col-md-4">
+                        <div class="card border border-light-subtle shadow-sm rounded-4 text-center h-100 py-3">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Evaluation</div>
+                                <div class="display-5 fw-bold" style="color: var(--primary-blue);">{{ result.ai_eval_score }}<span class="fs-4 text-muted">%</span></div>
+                                <div class="progress mt-3 mx-auto" style="height: 6px; width: 80%;">
+                                    <div class="progress-bar bg-primary" style="width: {{ result.ai_eval_score }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border border-light-subtle shadow-sm rounded-4 text-center h-100 py-3">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Grammar Accuracy</div>
+                                <div class="display-5 fw-bold" style="color: var(--primary-green);">{{ result.grammar_score }}<span class="fs-4 text-muted">%</span></div>
+                                <div class="progress mt-3 mx-auto" style="height: 6px; width: 80%;">
+                                    <div class="progress-bar bg-success" style="width: {{ result.grammar_score }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border border-light-subtle shadow-sm rounded-4 text-center h-100 py-3">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Structure Compliance</div>
+                                <div class="display-5 fw-bold" style="color: var(--primary-gold);">{{ result.structure.structure_score }}<span class="fs-4 text-muted">%</span></div>
+                                <div class="progress mt-3 mx-auto" style="height: 6px; width: 80%;">
+                                    <div class="progress-bar bg-warning" style="width: {{ result.structure.structure_score }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border border-light-subtle shadow-sm rounded-4 text-center h-100 py-3">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">AI Detection</div>
+                                <div class="display-5 fw-bold text-danger">{{ result.ai_detection_score }}<span class="fs-4 text-muted">%</span></div>
+                                <div class="progress mt-3 mx-auto" style="height: 6px; width: 80%;">
+                                    <div class="progress-bar bg-danger" style="width: {{ result.ai_detection_score }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border border-light-subtle shadow-sm rounded-4 text-center h-100 py-3">
+                            <div class="card-body position-relative">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Similarity Check</div>
+                                <div class="display-5 fw-bold text-info">{{ result.similarity }}<span class="fs-4 text-muted">%</span></div>
+                                <div class="progress mt-3 mx-auto" style="height: 6px; width: 80%;">
+                                    <div class="progress-bar bg-info" style="width: {{ result.similarity }}%"></div>
+                                </div>
+                                {% if result.similarity > 0 and result.similar_to %}
+                                    <div class="mt-2 small text-muted text-truncate" title="Matched against: {{ result.similar_to }}">
+                                        <i class="bi bi-file-earmark-text"></i> Matches: {{ result.similar_to }}
+                                    </div>
+                                {% else %}
+                                    <div class="mt-2 small text-muted"><i class="bi bi-globe"></i> Global Check</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="bg-white p-3 rounded-4 border shadow-sm text-center">
-                    <div class="text-muted small text-uppercase fw-bold mb-1" style="letter-spacing: 0.05em;">Structure Compliance</div>
-                    <div class="display-6 fw-bold" style="color: var(--primary-gold);">{{ result.structure['structure_score']|default('0') }}<span class="fs-4 text-muted">%</span></div>
-                    <div class="progress mt-2" style="height: 6px;">
-                        <div class="progress-bar bg-warning" style="width: {{ result.structure['structure_score']|default('0') }}%"></div>
+
+                <!-- Document View -->
+                <div id="pdfView" class="p-4 pt-2">
+                    <div class="bg-white rounded-4 border overflow-hidden shadow-sm" style="height: 60vh;">
+                        {% if result.filename.lower().endswith('.pdf') %}
+                            <iframe class="pdf-iframe" data-src="{{ url_for('uploaded_file', filename=result.filename) }}" 
+                                    width="100%" height="100%" style="border: none;">
+                            </iframe>
+                        {% else %}
+                            <div class="d-flex flex-column align-items-center justify-content-center h-100 py-5">
+                                <i class="bi bi-file-word text-primary display-1 mb-3"></i>
+                                <h4 class="fw-bold">Preview Not Available</h4>
+                                <p class="text-muted">Word documents (.docx) cannot be previewed directly in the browser.</p>
+                                <a href="{{ url_for('uploaded_file', filename=result.filename) }}" download class="btn btn-primary-custom mt-2 px-4 py-2">
+                                    <i class="bi bi-cloud-arrow-down-fill me-2"></i> Download Document
+                                </a>
+                            </div>
+                        {% endif %}
                     </div>
+                </div>
+
+                <!-- Error View -->
+                <div id="errorView" class="p-4 pt-2" style="display: none; max-height: 60vh; overflow-y: auto;">
+                    
+                    <!-- Structure Violations Details (Since we hid the grid) -->
+                    {% if result.structure and result.structure.violations %}
+                    <div class="alert alert-warning border border-warning rounded-4 mb-4 shadow-sm">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Structure Issues</h6>
+                        <ul class="mb-0 text-dark">
+                            {% for v in result.structure.violations %}
+                            <li><strong>{{ v.category }}:</strong> {{ v.message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% set has_errors = namespace(value=false) %}
+                    {% for section, data in result.grammar.items() %}
+                        {% if data.issues and data.issues|length > 0 %}
+                            {% set has_errors.value = true %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if has_errors.value %}
+                        <div class="alert alert-info border-0 rounded-4 mb-4 shadow-sm bg-primary bg-opacity-10 text-primary">
+                            <i class="bi bi-info-circle-fill me-2"></i> Hover over highlighted words to see AI suggestions.
+                        </div>
+                        <div class="card border border-light-subtle rounded-4 mb-4 shadow-sm">
+                            <div class="card-header bg-light bg-opacity-50 fw-bold text-uppercase small tracking-widest text-center">Full Document</div>
+                            <div class="card-body p-4 fs-5 text-main lh-lg document-viewer" style="white-space: pre-wrap; text-align: justify;">
+                                {{ result.global_highlighted_text|safe if result.global_highlighted_text else "No content available." }}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5 bg-white rounded-4 border shadow-sm">
+                            <i class="bi bi-check-all text-success display-1 mb-3"></i>
+                            <h4 class="fw-bold">No Errors Found</h4>
+                            <p class="text-muted">The document structure and syntax appear to be perfect.</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Similarity Report View -->
+                <div id="similarityView" class="p-5 pt-4 bg-white" style="display: none; min-height: 50vh;">
+                    {% if result.similarity_details %}
+                    <div class="mb-5">
+                        <h1 class="display-4 fw-bold mb-1">{{ result.similarity_details.overall }}% Overall Similarity</h1>
+                        <p class="text-muted fs-5">The combined total of all matches, including overlapping sources, for each database.</p>
+                    </div>
+
+                    <div class="row g-5">
+                        <div class="col-md-7">
+                            <h4 class="fw-bold mb-4">Match Groups</h4>
+                            
+                            <div class="d-flex mb-4">
+                                <div class="me-3">
+                                    <span class="d-flex align-items-center justify-content-center rounded-circle text-white shadow-sm" style="width: 40px; height: 40px; background-color: #f1525b;">
+                                        <i class="bi bi-journal"></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-1">{{ result.similarity_details.groups.not_cited.count }} Not Cited or Quoted <span class="text-muted ms-2">{{ result.similarity_details.groups.not_cited.pct }}%</span></h5>
+                                    <p class="text-muted mb-0 small">Matches with neither in-text citation nor quotation marks</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex mb-4">
+                                <div class="me-3">
+                                    <span class="d-flex align-items-center justify-content-center rounded-circle text-white shadow-sm" style="width: 40px; height: 40px; background-color: #f68c3e;">
+                                        <i class="bi bi-quote"></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-1">{{ result.similarity_details.groups.missing_quot.count }} Missing Quotations <span class="text-muted ms-2">{{ result.similarity_details.groups.missing_quot.pct }}%</span></h5>
+                                    <p class="text-muted mb-0 small">Matches that are still very similar to source material</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex mb-4">
+                                <div class="me-3">
+                                    <span class="d-flex align-items-center justify-content-center rounded-circle text-dark shadow-sm" style="width: 40px; height: 40px; background-color: #ffe699;">
+                                        <i class="bi bi-list"></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-1">{{ result.similarity_details.groups.missing_cit.count }} Missing Citation <span class="text-muted ms-2">{{ result.similarity_details.groups.missing_cit.pct }}%</span></h5>
+                                    <p class="text-muted mb-0 small">Matches that have quotation marks, but no in-text citation</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex mb-4">
+                                <div class="me-3">
+                                    <span class="d-flex align-items-center justify-content-center rounded-circle text-white shadow-sm" style="width: 40px; height: 40px; background-color: #a3d3c1;">
+                                        <i class="bi bi-mortarboard-fill"></i>
+                                    </span>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-1">{{ result.similarity_details.groups.cited_quoted.count }} Cited and Quoted <span class="text-muted ms-2">{{ result.similarity_details.groups.cited_quoted.pct }}%</span></h5>
+                                    <p class="text-muted mb-0 small">Matches with in-text citation present, but no quotation marks</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-5">
+                            <h4 class="fw-bold mb-4">Top Sources</h4>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3 fs-5">
+                                <div class="fw-bold">{{ result.similarity_details.sources.internet }}%</div>
+                                <div class="text-muted text-start flex-grow-1 ms-4"><i class="bi bi-globe me-2"></i>Internet sources</div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3 fs-5">
+                                <div class="fw-bold">{{ result.similarity_details.sources.publications }}%</div>
+                                <div class="text-muted text-start flex-grow-1 ms-4"><i class="bi bi-book me-2"></i>Publications</div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3 fs-5">
+                                <div class="fw-bold">{{ result.similarity_details.sources.student }}%</div>
+                                <div class="text-muted text-start flex-grow-1 ms-4"><i class="bi bi-person-fill me-2"></i>Submitted works (Student Papers)</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                        <div class="text-center py-5 mt-5">
+                            <i class="bi bi-shield-check text-success display-1 mb-3"></i>
+                            <h4 class="fw-bold">No Similarity Report Available</h4>
+                            <p class="text-muted">The document passed the initial checks with 0% similarity.</p>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4 mt-2">
             <!-- Structure Evaluation -->
             <div class="col-12">
-                <div class="card card-custom h-100 mb-4">
+                <div class="card card-custom h-100 mb-4 border-0 shadow-lg">
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h4 class="mb-0 fw-bold">Structure Analysis</h4>
@@ -179,7 +402,7 @@
             <!-- Advanced Rule Checks -->
             {% if result.structure and (result.structure.violations or result.structure.checks_passed) %}
             <div class="col-12">
-                <div class="card card-custom mb-4">
+                <div class="card card-custom mb-4 border-0 shadow-lg">
                     <div class="card-body p-4">
                         <h4 class="fw-bold mb-4"><i class="bi bi-clipboard-check me-2"></i>Detailed Rule Checks</h4>
                         
@@ -242,53 +465,135 @@
                 </div>
             </div>
             {% endif %}
-
-            <!-- Grammar Evaluation -->
-            <div class="col-12">
-                <div class="card card-custom">
-                    <div class="card-body p-4">
-                        <h4 class="mb-4 fw-bold">Grammar & Syntax Check</h4>
-                        
-                        {% for section, data in result.grammar.items() %}
-                        <div class="mb-4 last-child-mb-0">
-                            <h6 class="text-uppercase fw-bold text-muted small mb-3 tracking-widest">{{ section|title }}</h6>
-                            {% if data.issues and data.issues|length > 0 %}
-                                <div class="list-group list-group-flush border rounded-4 overflow-hidden">
-                                    {% for issue in data.issues %}
-                                    <div class="list-group-item p-4 border-bottom last-child-border-0">
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3 mb-md-0">
-                                                <div class="small fw-bold text-muted mb-2">Detected Issue:</div>
-                                                <div class="p-3 bg-danger bg-opacity-10 rounded-3 border border-danger-subtle">
-                                                    <span class="text-danger fw-bold fs-5">{{ issue.word }}</span>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="small fw-bold text-muted mb-2">Suggestion:</div>
-                                                <div class="p-3 bg-success bg-opacity-10 rounded-3 border border-success-subtle">
-                                                    <span class="text-success fw-bold fs-5">{{ issue.suggestion }}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <div class="p-4 bg-light rounded-4 text-center border dashed">
-                                    <i class="bi bi-star-fill text-warning me-2"></i> No linguistic issues identified in this section.
-                                </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
         </div>
+
+        <script>
+        function showMode(mode) {
+            const pdfView = document.getElementById('pdfView');
+            const errorView = document.getElementById('errorView');
+            const similarityView = document.getElementById('similarityView');
+            const btnDoc = document.getElementById('btnDoc');
+            const btnErr = document.getElementById('btnErr');
+            const btnSim = document.getElementById('btnSim');
+
+            if(mode === 'document') {
+                pdfView.style.display = 'block';
+                errorView.style.display = 'none';
+                similarityView.style.display = 'none';
+                
+                btnDoc.classList.add('btn-primary-custom');
+                btnDoc.classList.remove('btn-outline-custom');
+                btnErr.classList.add('btn-outline-custom');
+                btnErr.classList.remove('btn-primary-custom');
+                btnSim.classList.add('btn-outline-custom');
+                btnSim.classList.remove('btn-primary-custom');
+            } else if(mode === 'errors') {
+                pdfView.style.display = 'none';
+                errorView.style.display = 'block';
+                similarityView.style.display = 'none';
+                
+                btnDoc.classList.remove('btn-primary-custom');
+                btnDoc.classList.add('btn-outline-custom');
+                btnErr.classList.add('btn-primary-custom');
+                btnErr.classList.remove('btn-outline-custom');
+                btnSim.classList.add('btn-outline-custom');
+                btnSim.classList.remove('btn-primary-custom');
+            } else if(mode === 'similarity') {
+                pdfView.style.display = 'none';
+                errorView.style.display = 'none';
+                similarityView.style.display = 'block';
+                
+                btnDoc.classList.remove('btn-primary-custom');
+                btnDoc.classList.add('btn-outline-custom');
+                btnErr.classList.remove('btn-primary-custom');
+                btnErr.classList.add('btn-outline-custom');
+                btnSim.classList.add('btn-primary-custom');
+                btnSim.classList.remove('btn-outline-custom');
+            }
+        }
+        
+        // Lazy load iframe if available
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframes = document.querySelectorAll('.pdf-iframe');
+            iframes.forEach(iframe => {
+                if(iframe.dataset.src) {
+                    iframe.src = iframe.dataset.src;
+                }
+            });
+        });
+
+        function minUpload() {
+            const card = document.getElementById('uploadReviewCard');
+            if (card.classList.contains('card-minimized')) {
+                card.classList.remove('card-minimized');
+            } else {
+                card.classList.add('card-minimized');
+                card.classList.remove('card-maximized');
+                document.getElementById('maxUploadIcon').className = 'bi bi-fullscreen';
+                document.body.style.overflow = '';
+            }
+        }
+
+        function maxUpload() {
+            const card = document.getElementById('uploadReviewCard');
+            const isMax = card.classList.contains('card-maximized');
+            card.classList.remove('card-minimized');
+            if (isMax) {
+                card.classList.remove('card-maximized');
+                document.getElementById('maxUploadIcon').className = 'bi bi-fullscreen';
+                document.body.style.overflow = '';
+            } else {
+                card.classList.add('card-maximized');
+                document.getElementById('maxUploadIcon').className = 'bi bi-fullscreen-exit';
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeUpload() {
+            document.getElementById('uploadReviewCard').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        </script>
         {% endif %}
     </div>
 </div>
 
 <style>
+    .card-maximized { 
+        position: fixed !important; 
+        top: 0 !important; 
+        left: 0 !important; 
+        width: 100vw !important; 
+        height: 100vh !important; 
+        z-index: 2000 !important; 
+        margin: 0 !important;
+        border-radius: 0 !important;
+        overflow-y: auto !important;
+    }
+    .card-minimized {
+        position: fixed !important;
+        bottom: 20px !important;
+        right: 20px !important;
+        width: 400px !important;
+        height: auto !important;
+        z-index: 2000 !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+        margin: 0 !important;
+    }
+    .card-minimized > div:not(:first-child) {
+        display: none !important;
+    }
+    .modal-window-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        padding: 0 4px;
+    }
+    .modal-window-btn:hover {
+        opacity: 1;
+    }
     .tracking-wider { letter-spacing: 0.05em; }
     .tracking-widest { letter-spacing: 0.1em; }
     .dashed { border-style: dashed !important; }
@@ -302,6 +607,66 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    .document-viewer .error-word {
+        background-color: rgba(255, 0, 0, 0.15) !important;
+        border-bottom: 2px dashed #ff4d4f;
+        border-radius: 4px;
+        padding: 0 4px;
+        position: relative;
+        cursor: pointer;
+        display: inline-block;
+        transition: background-color 0.2s ease;
+    }
+    
+    .document-viewer .error-word:hover {
+        background-color: rgba(255, 0, 0, 0.25) !important;
+    }
+    
+    .document-viewer .error-word::after {
+        content: "Suggestion: " attr(data-suggestions);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-main, #333);
+        color: white;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        margin-bottom: 8px;
+        pointer-events: none;
+    }
+    
+    .document-viewer .error-word::before {
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: var(--text-main, #333) transparent transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        margin-bottom: -4px;
+        z-index: 10;
+        pointer-events: none;
+    }
+    
+    .document-viewer .error-word:hover::after,
+    .document-viewer .error-word:hover::before {
+        opacity: 1;
+        visibility: visible;
     }
 </style>
 
