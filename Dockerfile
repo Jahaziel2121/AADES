@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose the port Gunicorn will run on
-EXPOSE 10000
+EXPOSE 7860
 
 # Start Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:7860", "app:app", "--timeout", "120"]
